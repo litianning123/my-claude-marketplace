@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import scanner
+import patterns
 
 
 def _make_transcript(messages: list[dict], project_name: str = "test-project") -> Path:
@@ -141,3 +142,83 @@ class ParseSessionTests(unittest.TestCase):
         self.assertEqual(scanner.classify_tool_error("Bash", "exit code 128"), "git_error")
         self.assertEqual(scanner.classify_tool_error("Bash", "exit code 1"), "bash_nonzero")
         self.assertEqual(scanner.classify_tool_error("Bash", "request interrupted by user"), "user_interrupted")
+
+
+class ScoreMessageTests(unittest.TestCase):
+    def test_detects_correction(self):
+        result = patterns.score_message("no, don't commit yet")
+        self.assertGreater(len(result["corrections"]), 0)
+
+    def test_detects_context_request(self):
+        result = patterns.score_message("as I said before, we use postgres")
+        self.assertGreater(len(result["context_requests"]), 0)
+
+    def test_detects_slow_start(self):
+        result = patterns.score_message("first, let's check the project uses python 3.10")
+        self.assertGreater(len(result["slow_start"]), 0)
+
+    def test_detects_automation(self):
+        result = patterns.score_message("every time I push, I have to run the linter")
+        self.assertGreater(len(result["automation"]), 0)
+
+    def test_detects_git_workflow(self):
+        result = patterns.score_message("the PR shows 47 files changed, that's wrong")
+        self.assertGreater(len(result["git_workflow"]), 0)
+
+    def test_clean_message_returns_empty(self):
+        result = patterns.score_message("looks good, thanks")
+        self.assertEqual(sum(len(v) for v in result.values()), 0)
+
+    def test_noise_is_filtered(self):
+        self.assertTrue(patterns._is_noise("this session is being continued from a previous conversation"))
+        self.assertTrue(patterns._is_noise("Base directory for this skill"))
+        self.assertFalse(patterns._is_noise("please fix the bug in the login handler"))
+
+
+class GroupByPatternTests(unittest.TestCase):
+    def test_first_pattern_wins(self):
+        items = [
+            {"text": "no, don't do that, as I said before", "session": "s1",
+             "project": "test", "patterns": ["p1_correction", "p2_context"],
+             "preceding_action": "did something"},
+        ]
+        groups = patterns.group_by_pattern(items, "corrections")
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0].count, 1)
+
+    def test_groups_by_pattern(self):
+        items = [
+            {"text": "msg A", "session": "s1", "project": "test",
+             "patterns": ["p1"], "preceding_action": None},
+            {"text": "msg B", "session": "s1", "project": "test",
+             "patterns": ["p1"], "preceding_action": None},
+            {"text": "msg C", "session": "s2", "project": "test",
+             "patterns": ["p2"], "preceding_action": None},
+        ]
+        groups = patterns.group_by_pattern(items, "corrections")
+        self.assertEqual(len(groups), 2)
+        p1_group = next(g for g in groups if g.pattern == "p1")
+        self.assertEqual(p1_group.count, 2)
+        self.assertEqual(p1_group.sessions, 1)
+
+
+class AnalyzeIntegrationTests(unittest.TestCase):
+    def test_empty_sessions_produces_empty_findings(self):
+        result = patterns.analyze([])
+        self.assertEqual(result["summary"]["sessions_analyzed"], 0)
+        for cat in ["corrections", "missing_context", "slow_start_context",
+                     "automation_candidates", "git_workflow_errors"]:
+            self.assertEqual(result[cat], [])
+
+    def test_sessions_with_messages_produce_findings(self):
+        from scanner import SessionData, UserMessage
+        sessions = [
+            SessionData(
+                path="/tmp/test.jsonl", project="test", session_id="s1",
+                user_messages=[
+                    UserMessage(text="no, don't commit yet", timestamp="2026-01-01T00:00:00Z", preceding_action="committed abc123"),
+                ],
+            ),
+        ]
+        result = patterns.analyze(sessions)
+        self.assertGreater(len(result["corrections"]), 0)
