@@ -54,6 +54,14 @@ For approved rules, apply one at a time via Plan → Act → Verify (SOSA™ gov
 python3 "${PLUGIN_ROOT}/scripts/audit.py" --apply
 ```
 
+## 5. Karpathy Guardrails (opt-in)
+
+After applying rules, scan `corrections` and `missing_context` examples for behavioral anti-patterns. See `references/karpathy-guardrails.md` for signal keywords, thresholds, and merge procedure.
+
+- Evidence threshold: ≥ 2 hits across all finding groups
+- Offer once per audit — if declined, do not re-offer
+- Merge is governed by the same SOSA rules as Phase 4
+
 ## Categories Reference
 
 | Category | What it detects | Threshold |
