@@ -14,6 +14,7 @@ from pathlib import Path
 
 import scanner
 import patterns
+from patterns import CATEGORY_ORDER, CATEGORY_LABELS
 import synthesizer
 import applier
 import scorer
@@ -65,8 +66,7 @@ def _findings_to_json(findings: dict, deltas: dict, recs: list) -> dict:
     out["summary"] = _summary_to_dict(findings.get("summary", {}))
 
     # Convert FindingGroup lists
-    for cat in ["corrections", "missing_context", "slow_start_context",
-                "automation_candidates", "git_workflow_errors"]:
+    for cat in CATEGORY_ORDER:
         out[cat] = [_finding_group_to_dict(g) for g in findings.get(cat, [])]
 
     # tool_failures and hook_errors are already dicts
@@ -106,18 +106,12 @@ def _print_text_report(findings: dict, deltas: dict, recs: list):
             print(f"Projects: {proj_disp}")
     print()
 
-    sections = [
-        ("CORRECTIONS", "corrections"),
-        ("MISSING CONTEXT", "missing_context"),
-        ("SLOW START", "slow_start_context"),
-        ("AUTOMATION CANDIDATES", "automation_candidates"),
-        ("GIT WORKFLOW ERRORS", "git_workflow_errors"),
-    ]
-    for title, key in sections:
+    for key in CATEGORY_ORDER:
         groups = findings[key]
         total = sum(g.count if hasattr(g, 'count') else g.get("count", 0) for g in groups)
         if not total:
             continue
+        title = CATEGORY_LABELS.get(key, key.upper())
         print(f"--- {title} ({total} matches across {len(groups)} patterns) ---")
         for g in groups[:5]:
             count = g.count if hasattr(g, 'count') else g.get("count", 0)
