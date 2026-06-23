@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 import checks
+import fixer
 import sources
 
 
@@ -288,3 +289,101 @@ class QuotePathVarsTests(unittest.TestCase):
 
     def test_no_path_var_unchanged(self):
         self.assertEqual(checks.quote_path_vars("echo hello"), "echo hello")
+
+
+class FixUnquotedVarsTests(unittest.TestCase):
+    def test_fix_wraps_unquoted_var(self):
+        path = _make_plugin_hooks({
+            "SessionStart": "${CLAUDE_PLUGIN_ROOT}/scripts/x.sh",
+        }, scripts={"scripts/x.sh": ("#!/bin/sh\necho hi\n", True)})
+        self.assertEqual(fixer.fix_unquoted_vars(path), 1)
+        data = json.loads(path.read_text())
+        cmd = data["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+        self.assertIn('"', cmd)
+        # Re-scan should be clean
+        self.assertNotIn("unquoted_var", _slugs(checks.scan_file(path)))
+
+    def test_fix_handles_multiple_commands(self):
+        path = _make_plugin_hooks({
+            "SessionStart": "${CLAUDE_PLUGIN_ROOT}/a.sh",
+            "PreToolUse": "python3 ${CLAUDE_PLUGIN_ROOT}/b.py",
+        }, scripts={
+            "a.sh": ("#!/bin/sh\necho a\n", True),
+            "b.py": ("print(1)\n", False),
+        })
+        self.assertEqual(fixer.fix_unquoted_vars(path), 2)
+        data = json.loads(path.read_text())
+        for ev in ("SessionStart", "PreToolUse"):
+            cmd = data["hooks"][ev][0]["hooks"][0]["command"]
+            self.assertIn('"', cmd)
+
+    def test_fix_idempotent(self):
+        path = _make_plugin_hooks({
+            "SessionStart": "${CLAUDE_PLUGIN_ROOT}/scripts/x.sh",
+        }, scripts={"scripts/x.sh": ("#!/bin/sh\necho hi\n", True)})
+        self.assertEqual(fixer.fix_unquoted_vars(path), 1)
+        self.assertEqual(fixer.fix_unquoted_vars(path), 0)
+
+    def test_fix_preserves_unrelated_commands(self):
+        path = _make_plugin_hooks({
+            "SessionStart": "${CLAUDE_PLUGIN_ROOT}/x.sh",
+            "Stop": "echo done",
+        }, scripts={"x.sh": ("#!/bin/sh\necho hi\n", True)})
+        fixer.fix_unquoted_vars(path)
+        data = json.loads(path.read_text())
+        stop_cmd = data["hooks"]["Stop"][0]["hooks"][0]["command"]
+        self.assertEqual(stop_cmd, "echo done")
+
+    def test_fix_invalid_json_returns_zero(self):
+        path = _make_plugin_hooks({}, raw="not json at all")
+        self.assertEqual(fixer.fix_unquoted_vars(path), 0)
+
+    def test_fix_already_quoted_returns_zero(self):
+        path = _make_plugin_hooks({
+            "SessionStart": '"${CLAUDE_PLUGIN_ROOT}/scripts/x.sh"',
+        }, scripts={"scripts/x.sh": ("#!/bin/sh\necho hi\n", True)})
+        self.assertEqual(fixer.fix_unquoted_vars(path), 0)
+
+    def test_output_is_valid_json_after_fix(self):
+        path = _make_plugin_hooks({
+            "SessionStart": "${CLAUDE_PLUGIN_ROOT}/scripts/x.sh",
+        }, scripts={"scripts/x.sh": ("#!/bin/sh\necho hi\n", True)})
+        fixer.fix_unquoted_vars(path)
+        json.loads(path.read_text())  # must not raise
+
+
+class FixExecutableTests(unittest.TestCase):
+    def test_chmod_makes_executable(self):
+        path = _make_plugin_hooks(
+            {"Stop": '"${CLAUDE_PLUGIN_ROOT}/scripts/x.sh"'},
+            scripts={"scripts/x.sh": ("#!/bin/sh\necho hi\n", False)},
+        )
+        findings = checks.scan_file(path)
+        ne = next(f for f in findings if f.check == "not_executable")
+        self.assertTrue(fixer.fix_executable(ne))
+        self.assertTrue(os.access(ne.detail.split(": ")[-1], os.X_OK))
+
+    def test_refuses_symlink(self):
+        tmp = Path(tempfile.mkdtemp())
+        real = tmp / "real.sh"
+        real.write_text("#!/bin/sh\necho hi\n")
+        real.chmod(real.stat().st_mode & ~0o111)
+        link = tmp / "link.sh"
+        try:
+            link.symlink_to(real)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        from checks import Finding
+        f = Finding(file="", event="Stop", command="cmd",
+                    check="not_executable", detail=f"needs chmod +x: {link}",
+                    fixable=True)
+        self.assertFalse(fixer.fix_executable(f))
+        self.assertFalse(os.access(real, os.X_OK))
+
+    def test_missing_target_file_returns_false(self):
+        from checks import Finding
+        f = Finding(file="", event="Stop", command="cmd",
+                    check="not_executable",
+                    detail="Script is not executable (needs chmod +x): /nonexistent/x.sh",
+                    fixable=True)
+        self.assertFalse(fixer.fix_executable(f))
