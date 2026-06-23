@@ -5,6 +5,13 @@ from dataclasses import dataclass
 import re
 
 
+def _get(group, key: str, default=None):
+    """Get a value from either a FindingGroup dataclass or a plain dict."""
+    if isinstance(group, dict):
+        return group.get(key, default)
+    return getattr(group, key, default)
+
+
 @dataclass
 class Recommendation:
     proposed_rule: str
@@ -34,14 +41,14 @@ def _confidence(count: int, sessions: int) -> str:
     return "low"
 
 
-def _build_rule(group: dict, category: str, tokens_per: int) -> str:
+def _build_rule(group, category: str, tokens_per: int) -> str:
     """Build a natural-language rule from a finding group."""
-    count = group.get("count", 0)
-    sessions = group.get("sessions", 1)
-    proj = group.get("top_project", "unknown")
-    examples = group.get("examples", [])
+    count = _get(group, "count", 0)
+    sessions = _get(group, "sessions", 1)
+    proj = _get(group, "top_project", "unknown")
+    examples = _get(group, "examples", [])
     example = examples[0] if examples else "(no example)"
-    preceding = group.get("preceding_action", "")
+    preceding = _get(group, "preceding_action", "")
 
     if category == "corrections":
         return (
@@ -91,17 +98,17 @@ def generate(findings: dict) -> list[Recommendation]:
     # Process each finding category
     for category, (min_count, min_sessions, tokens_per, target, scope) in TEMPLATES.items():
         for group in findings.get(category, []):
-            count = group.get("count", 0)
-            sessions = group.get("sessions", 1)
+            count = _get(group, "count", 0)
+            sessions = _get(group, "sessions", 1)
             if count < min_count or sessions < min_sessions:
                 continue
-            scope_val = "project" if group.get("top_project") else "global"
+            scope_val = "project" if _get(group, "top_project") else "global"
             recommendations.append(Recommendation(
                 proposed_rule=_build_rule(group, category, tokens_per),
                 estimated_tokens_saved=count * tokens_per,
                 scope=scope_val,
                 target=target,
-                evidence=f"{category}: {count}x across {sessions} sessions in {group.get('top_project', '?')}",
+                evidence=f"{category}: {count}x across {sessions} sessions in {_get(group, 'top_project', '?')}",
                 confidence=_confidence(count, sessions),
                 category=category,
             ))

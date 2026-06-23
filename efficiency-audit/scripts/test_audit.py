@@ -2,6 +2,8 @@
 """Tests for efficiency-audit."""
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone, timedelta
@@ -415,3 +417,26 @@ class ScorerTests(unittest.TestCase):
         # Should return a path ending in MEMORY.md or None if not in a git repo
         if path:
             self.assertIn("MEMORY.md", str(path))
+
+
+class AuditIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        self.script_dir = Path(__file__).parent
+
+    def test_text_output_mode(self):
+        result = subprocess.run(
+            [sys.executable, "audit.py", "--days", "1", "--output", "text"],
+            capture_output=True, text=True, cwd=str(self.script_dir),
+        )
+        # Should succeed even with no transcripts
+        self.assertIn(result.returncode, [0])
+
+    def test_json_output_mode(self):
+        result = subprocess.run(
+            [sys.executable, "audit.py", "--days", "1", "--output", "json"],
+            capture_output=True, text=True, cwd=str(self.script_dir),
+        )
+        self.assertEqual(result.returncode, 0)
+        data = json.loads(result.stdout)
+        self.assertIn("summary", data)
+        self.assertIn("corrections", data)
