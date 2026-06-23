@@ -1,2 +1,2 @@
-hook-doctor/scripts/__pycache__/*
+__pycache__/
 docs/superpowers/

@@ -359,3 +359,59 @@ class ApplierTests(unittest.TestCase):
         self.path.write_text("# Header\n")
         diff = applier.preview_diff(self.path, ["NEW RULE"])
         self.assertIn("NEW RULE", diff)
+
+
+import scorer
+
+
+class ScorerTests(unittest.TestCase):
+    def test_empty_file_max_score(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("")
+            path = Path(f.name)
+        result = scorer.score_file(path)
+        self.assertEqual(result["score"], 1.0)
+        self.assertEqual(result["diagnosis"], "Optimal")
+        path.unlink()
+
+    def test_control_point_300(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("\n".join(["line"] * 300))
+            path = Path(f.name)
+        result = scorer.score_file(path)
+        self.assertEqual(result["score"], 1.0)
+        path.unlink()
+
+    def test_midpoint_750(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("\n".join(["line"] * 750))
+            path = Path(f.name)
+        result = scorer.score_file(path)
+        self.assertAlmostEqual(result["score"], 0.5, places=1)
+        path.unlink()
+
+    def test_over_5000_is_zero(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("\n".join(["line"] * 5001))
+            path = Path(f.name)
+        result = scorer.score_file(path)
+        self.assertEqual(result["score"], 0.0)
+        self.assertEqual(result["diagnosis"], "Critical Context Blocker")
+        path.unlink()
+
+    def test_recipe_book_alert(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("\n".join(["line"] * 201))
+            path = Path(f.name)
+        result = scorer.score_file(path)
+        self.assertTrue(result["recipe_book_alert"])
+        path.unlink()
+
+    def test_missing_file_returns_none(self):
+        self.assertIsNone(scorer.score_file(Path("/nonexistent/file.md")))
+
+    def test_resolve_memory_path(self):
+        path = scorer.resolve_memory_path()
+        # Should return a path ending in MEMORY.md or None if not in a git repo
+        if path:
+            self.assertIn("MEMORY.md", str(path))
