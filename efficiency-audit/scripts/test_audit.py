@@ -222,3 +222,84 @@ class AnalyzeIntegrationTests(unittest.TestCase):
         ]
         result = patterns.analyze(sessions)
         self.assertGreater(len(result["corrections"]), 0)
+
+
+import synthesizer
+
+
+class SynthesizerTests(unittest.TestCase):
+    def test_generates_correction_recommendation(self):
+        findings = {
+            "summary": {"sessions_analyzed": 5, "total_user_messages": 100},
+            "corrections": [{
+                "pattern": r"\bno[,!]?\s+(don'?t)",
+                "category": "corrections",
+                "count": 5,
+                "sessions": 3,
+                "top_project": "my-repo",
+                "examples": ["no, don't commit yet"],
+                "preceding_action": "committed abc123",
+            }],
+            "missing_context": [],
+            "slow_start_context": [],
+            "automation_candidates": [],
+            "git_workflow_errors": [],
+            "hook_errors": [],
+            "tool_failures": [],
+        }
+        recs = synthesizer.generate(findings)
+        self.assertGreater(len(recs), 0)
+        rec = recs[0]
+        self.assertEqual(rec.category, "corrections")
+        self.assertIn("commit", rec.proposed_rule.lower())
+        self.assertEqual(rec.estimated_tokens_saved, 500)  # 5 × 100
+        self.assertEqual(rec.confidence, "high")
+        self.assertEqual(rec.target, "CLAUDE.md")
+
+    def test_filters_below_threshold(self):
+        findings = {
+            "summary": {"sessions_analyzed": 5, "total_user_messages": 100},
+            "corrections": [{
+                "pattern": "pat", "category": "corrections",
+                "count": 1, "sessions": 1, "top_project": "test",
+                "examples": ["no"], "preceding_action": None,
+            }],
+            "missing_context": [], "slow_start_context": [],
+            "automation_candidates": [], "git_workflow_errors": [],
+            "hook_errors": [], "tool_failures": [],
+        }
+        recs = synthesizer.generate(findings)
+        self.assertEqual(len(recs), 0)  # below min_count=3
+
+    def test_hook_errors_target_hook_doctor(self):
+        findings = {
+            "summary": {"sessions_analyzed": 5, "total_user_messages": 100},
+            "corrections": [], "missing_context": [], "slow_start_context": [],
+            "automation_candidates": [], "git_workflow_errors": [],
+            "hook_errors": [{
+                "hook_name": "SessionStart", "exit_code": 127,
+                "stderr": "command not found", "command": "bad.sh",
+                "session_count": 3,
+            }],
+            "tool_failures": [],
+        }
+        recs = synthesizer.generate(findings)
+        hook_recs = [r for r in recs if r.target == "hook-doctor"]
+        self.assertEqual(len(hook_recs), 1)
+        self.assertIn("hook-doctor", hook_recs[0].proposed_rule.lower())
+
+    def test_sorts_by_tokens_saved(self):
+        findings = {
+            "summary": {"sessions_analyzed": 5, "total_user_messages": 100},
+            "corrections": [
+                {"pattern": "p1", "category": "corrections", "count": 10, "sessions": 5,
+                 "top_project": "test", "examples": ["msg"], "preceding_action": "did x"},
+                {"pattern": "p2", "category": "corrections", "count": 3, "sessions": 2,
+                 "top_project": "test", "examples": ["msg"], "preceding_action": "did y"},
+            ],
+            "missing_context": [], "slow_start_context": [],
+            "automation_candidates": [], "git_workflow_errors": [],
+            "hook_errors": [], "tool_failures": [],
+        }
+        recs = synthesizer.generate(findings)
+        self.assertGreaterEqual(recs[0].estimated_tokens_saved, recs[-1].estimated_tokens_saved)
