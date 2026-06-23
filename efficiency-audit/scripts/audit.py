@@ -18,6 +18,7 @@ from patterns import CATEGORY_ORDER, CATEGORY_LABELS
 import synthesizer
 import applier
 import scorer
+import router
 
 
 def _parse_args():
@@ -153,6 +154,10 @@ def _print_text_report(findings: dict, deltas: dict, recs: list):
             print(f"     {r.proposed_rule[:150]}")
         print()
 
+        # Route each recommendation to the right CLAUDE.md
+        resolved = router.resolve_targets(recs)
+        print(router.print_routing_table(resolved))
+
     # Scorer output
     claude_paths = [
         Path.home() / ".claude" / "CLAUDE.md",
@@ -199,12 +204,28 @@ def main():
 
     # Phase 4: Apply (if requested)
     if args.apply and recs:
-        claude_rules = [r.proposed_rule for r in recs if r.target == "CLAUDE.md"]
-        if claude_rules:
-            target = Path(".claude/CLAUDE.md") if Path(".claude/CLAUDE.md").exists() else Path("CLAUDE.md")
-            action = applier.write_block(target, claude_rules)
-            print(f"\nApplied {len(claude_rules)} rule(s) to {target} ({action})")
-        hook_recs = [r for r in recs if r.target == "hook-doctor"]
+        resolved = router.resolve_targets(recs)
+
+        # Group rules by target file
+        by_target: dict[Path, list[str]] = {}
+        hook_recs = []
+        for rec, target, reasoning in resolved:
+            target_name = getattr(rec, 'target', 'CLAUDE.md')
+            if target_name == "hook-doctor":
+                hook_recs.append(rec)
+            elif target.level == "needs_decision":
+                # Both global and project exist — default to project (safer)
+                project_file = Path(".claude/CLAUDE.md") if Path(".claude/CLAUDE.md").exists() else Path("CLAUDE.md")
+                by_target.setdefault(project_file, []).append(getattr(rec, 'proposed_rule', ''))
+            else:
+                by_target.setdefault(target.path, []).append(getattr(rec, 'proposed_rule', ''))
+
+        # Write per-target
+        for target_path, rules in by_target.items():
+            if rules:
+                action = applier.write_block(target_path, rules)
+                print(f"\nApplied {len(rules)} rule(s) to {target_path} ({action})")
+
         if hook_recs:
             print(f"\n{len(hook_recs)} hook-doctor recommendation(s) — run hook-doctor separately.")
 

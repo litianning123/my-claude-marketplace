@@ -20,11 +20,29 @@ python3 "${PLUGIN_ROOT}/scripts/audit.py" --days 30 [--project NAME]
 
 Reports findings in 5 categories: corrections, missing context, slow starts, automation candidates, git workflow errors. Also surfaces tool failures and hook errors.
 
-## 2. Report
+## 2. Route
 
-Present recommendations ordered by impact. For each: rule text, evidence, target file, estimated tokens saved. Mark confidence (high/medium/low). User approves or skips each rule individually.
+The audit output includes a routing table showing where each rule should go. Detect which CLAUDE.md files exist first:
 
-## 3. Apply
+```bash
+[ -f ~/.claude/CLAUDE.md ] && echo "global: yes" || echo "global: no"
+[ -f .claude/CLAUDE.md ]   && echo "project (.claude/): yes" || echo "project (.claude/): no"
+[ -f CLAUDE.md ]           && echo "project (root): yes"     || echo "project (root): no"
+```
+
+Routing rules:
+- **Only one file exists** → route there silently, no prompt needed
+- **Both global and project files exist** → show an A/B prompt and wait for the user to choose
+- **Neither exists** → ask which to create before proceeding
+- **Project-specific rules** (all matches in one project) → route to project file
+- **Cross-project rules** (seen across 3+ projects) → recommend global, but confirm before writing
+- **Writing to `~/.claude/CLAUDE.md` affects every future session across all projects** — require explicit consent
+
+## 3. Report
+
+Present recommendations ordered by impact. For each: rule text, evidence, routed target file, estimated tokens saved. Mark confidence (high/medium/low). User approves or skips each rule individually.
+
+## 4. Apply
 
 For approved rules, apply one at a time via Plan → Act → Verify (SOSA™ governance):
 1. Show exact diff
