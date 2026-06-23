@@ -303,3 +303,59 @@ class SynthesizerTests(unittest.TestCase):
         }
         recs = synthesizer.generate(findings)
         self.assertGreaterEqual(recs[0].estimated_tokens_saved, recs[-1].estimated_tokens_saved)
+
+
+import applier
+
+
+class ApplierTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.path = self.tmp / "CLAUDE.md"
+
+    def test_read_empty_file(self):
+        self.path.write_text("# just a header\n")
+        self.assertEqual(applier.read_block(self.path), [])
+
+    def test_read_existing_block(self):
+        self.path.write_text(
+            "# Header\n\n"
+            "<!-- efficiency-audit:start -->\n"
+            "<!-- Last updated: 2026-01-01T00:00:00Z by efficiency-audit skill -->\n\n"
+            "## Efficiency Audit Rules\n\n"
+            "- ALWAYS read before write\n"
+            "- NEVER commit without asking\n\n"
+            "<!-- efficiency-audit:end -->\n"
+        )
+        rules = applier.read_block(self.path)
+        self.assertIn("ALWAYS read before write", rules)
+
+    def test_write_block_new(self):
+        self.path.write_text("# Header\n")
+        applier.write_block(self.path, ["RULE ONE", "RULE TWO"])
+        content = self.path.read_text()
+        self.assertIn("<!-- efficiency-audit:start -->", content)
+        self.assertIn("- RULE ONE", content)
+        self.assertIn("<!-- efficiency-audit:end -->", content)
+
+    def test_write_block_idempotent(self):
+        self.path.write_text("# Header\n")
+        applier.write_block(self.path, ["RULE ONE"])
+        first_content = self.path.read_text()
+        applier.write_block(self.path, ["RULE ONE"])
+        second_content = self.path.read_text()
+        # Should be identical — no duplicate blocks
+        self.assertEqual(first_content.count("<!-- efficiency-audit:start -->"), 1)
+        self.assertEqual(second_content.count("<!-- efficiency-audit:start -->"), 1)
+
+    def test_write_preserves_surrounding(self):
+        self.path.write_text("# My Project\n\nSome docs here\n")
+        applier.write_block(self.path, ["A RULE"])
+        content = self.path.read_text()
+        self.assertIn("# My Project", content)
+        self.assertIn("Some docs here", content)
+
+    def test_preview_diff(self):
+        self.path.write_text("# Header\n")
+        diff = applier.preview_diff(self.path, ["NEW RULE"])
+        self.assertIn("NEW RULE", diff)
