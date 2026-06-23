@@ -3,6 +3,8 @@
 import json
 import os
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -387,3 +389,112 @@ class FixExecutableTests(unittest.TestCase):
                     detail="Script is not executable (needs chmod +x): /nonexistent/x.sh",
                     fixable=True)
         self.assertFalse(fixer.fix_executable(f))
+
+
+class IntegrationTests(unittest.TestCase):
+    def test_report_mode_detects_problems(self):
+        """Running doctor.py on a temp plugin with known issues prints findings."""
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            plugin = base / "plugins" / "bad-plugin" / "hooks"
+            plugin.mkdir(parents=True)
+            hooks = plugin / "hooks.json"
+            d = {
+                "hooks": {
+                    "SessionStart": [{"hooks": [{
+                        "type": "command",
+                        "command": "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh"
+                    }]}]
+                }
+            }
+            hooks.write_text(json.dumps(d, indent=2))
+
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = str(base)
+            try:
+                result = subprocess.run(
+                    [sys.executable, "doctor.py", "--root", str(base / "plugins")],
+                    capture_output=True, text=True, cwd=str(Path(__file__).parent),
+                )
+                self.assertIn("unquoted_var", result.stdout)
+                self.assertIn("script_missing", result.stdout)
+                self.assertIn("fixable", result.stdout.lower()
+                               or "unquoted_var" in result.stdout)
+            finally:
+                if old_home:
+                    os.environ["HOME"] = old_home
+                else:
+                    del os.environ["HOME"]
+
+    def test_apply_mode_fixes_problems(self):
+        """Running with --apply should fix unquoted vars."""
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            plugin = base / "plugins" / "bad-plugin" / "hooks"
+            plugin.mkdir(parents=True)
+            scripts_dir = base / "plugins" / "bad-plugin" / "scripts"
+            scripts_dir.mkdir(parents=True)
+            (scripts_dir / "run.sh").write_text("#!/bin/sh\necho hi\n")
+            (scripts_dir / "run.sh").chmod(0o755)
+
+            hooks = plugin / "hooks.json"
+            d = {
+                "hooks": {
+                    "SessionStart": [{"hooks": [{
+                        "type": "command",
+                        "command": "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh"
+                    }]}]
+                }
+            }
+            hooks.write_text(json.dumps(d, indent=2))
+
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = str(base)
+            try:
+                result = subprocess.run(
+                    [sys.executable, "doctor.py", "--root",
+                     str(base / "plugins"), "--apply"],
+                    capture_output=True, text=True, cwd=str(Path(__file__).parent),
+                )
+                # After fix, re-read the file
+                data = json.loads(hooks.read_text())
+                cmd = data["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+                self.assertIn('"', cmd)
+            finally:
+                if old_home:
+                    os.environ["HOME"] = old_home
+                else:
+                    del os.environ["HOME"]
+
+    def test_clean_config_reports_no_problems(self):
+        """A valid config should produce no findings."""
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            plugin = base / "plugins" / "good-plugin" / "hooks"
+            plugin.mkdir(parents=True)
+            hooks = plugin / "hooks.json"
+            d = {
+                "hooks": {
+                    "SessionStart": [{"hooks": [{
+                        "type": "prompt",
+                        "command": "echo ready"
+                    }]}]
+                }
+            }
+            hooks.write_text(json.dumps(d, indent=2))
+
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = str(base)
+            try:
+                result = subprocess.run(
+                    [sys.executable, "doctor.py", "--root", str(base / "plugins")],
+                    capture_output=True, text=True, cwd=str(Path(__file__).parent),
+                )
+                self.assertIn("No hook configuration problems found",
+                              result.stdout)
+            finally:
+                if old_home:
+                    os.environ["HOME"] = old_home
+                else:
+                    del os.environ["HOME"]
+
