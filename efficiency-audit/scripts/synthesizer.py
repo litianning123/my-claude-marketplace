@@ -177,7 +177,7 @@ def generate(findings: dict) -> list[Recommendation]:
         category = tf.get("error_category", "unknown")
         tool = tf.get("tool", "?")
         rule_map = {
-            "unread_write": f"ALWAYS Read a file before calling {tool} (Edit/Write) on it",
+            "unread_write": f"ALWAYS Read a file before calling {tool} on it (Write for new files does not need a prior Read — this rule targets Edit)",
             "wrong_context": "VERIFY working directory and git context before running commands",
             "file_not_found": "VERIFY file paths exist before accessing them",
             "git_error": "VERIFY git repository state before running git commands",
