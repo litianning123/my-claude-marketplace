@@ -1,0 +1,32 @@
+{
+  "corrections": {
+    "min_count": 3,
+    "min_sessions": 2,
+    "tokens_per": 100,
+    "target": "CLAUDE.md"
+  },
+  "missing_context": {
+    "min_count": 2,
+    "min_sessions": 3,
+    "tokens_per": 200,
+    "target": "CLAUDE.md"
+  },
+  "slow_start_context": {
+    "min_count": 2,
+    "min_sessions": 2,
+    "tokens_per": 150,
+    "target": "CLAUDE.md"
+  },
+  "automation_candidates": {
+    "min_count": 2,
+    "min_sessions": 2,
+    "tokens_per": 150,
+    "target": "settings.json"
+  },
+  "git_workflow_errors": {
+    "min_count": 2,
+    "min_sessions": 1,
+    "tokens_per": 200,
+    "target": "CLAUDE.md"
+  }
+}

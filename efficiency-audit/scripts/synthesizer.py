@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Heuristic rule engine — generates fix recommendations from findings without LLM dependency."""
 
+import json
+import os
 from dataclasses import dataclass
+from pathlib import Path
 import re
 
 
@@ -23,14 +26,41 @@ class Recommendation:
     category: str
 
 
-# Template definitions — category → (min_count, min_sessions, tokens_per, target, scope)
-TEMPLATES = {
-    "corrections":        (3, 2, 100, "CLAUDE.md", "project"),
-    "missing_context":    (2, 3, 200, "CLAUDE.md", "project"),
-    "slow_start_context": (2, 2, 150, "CLAUDE.md", "project"),
-    "automation_candidates": (2, 2, 150, "settings.json", "project"),
-    "git_workflow_errors": (2, 1, 200, "CLAUDE.md", "project"),
-}
+def _resolve_templates_path() -> Path | None:
+    """Find the rule-templates.json file relative to this script or via env var."""
+    env_path = os.environ.get("EFFICIENCY_AUDIT_TEMPLATES")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+    # Look relative to this script: scripts/../references/rule-templates.json
+    script_dir = Path(__file__).resolve().parent
+    candidate = script_dir.parent / "references" / "rule-templates.json"
+    if candidate.exists():
+        return candidate
+    # Fallback: search from cwd
+    cwd_candidate = Path("references/rule-templates.json")
+    if cwd_candidate.exists():
+        return cwd_candidate.resolve()
+    return None
+
+
+def _load_templates() -> dict:
+    """Load rule templates from JSON file, with hardcoded fallback defaults."""
+    path = _resolve_templates_path()
+    if path:
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    # Fallback defaults if JSON is missing or malformed
+    return {
+        "corrections":        {"min_count": 3, "min_sessions": 2, "tokens_per": 100, "target": "CLAUDE.md"},
+        "missing_context":    {"min_count": 2, "min_sessions": 3, "tokens_per": 200, "target": "CLAUDE.md"},
+        "slow_start_context": {"min_count": 2, "min_sessions": 2, "tokens_per": 150, "target": "CLAUDE.md"},
+        "automation_candidates": {"min_count": 2, "min_sessions": 2, "tokens_per": 150, "target": "settings.json"},
+        "git_workflow_errors": {"min_count": 2, "min_sessions": 1, "tokens_per": 200, "target": "CLAUDE.md"},
+    }
 
 
 def _confidence(count: int, sessions: int) -> str:
@@ -94,9 +124,14 @@ def _infer_action(preceding: str, example: str) -> str:
 def generate(findings: dict) -> list[Recommendation]:
     """Generate ranked recommendations from analysis findings."""
     recommendations = []
+    templates = _load_templates()
 
     # Process each finding category
-    for category, (min_count, min_sessions, tokens_per, target, scope) in TEMPLATES.items():
+    for category, cfg in templates.items():
+        min_count = cfg["min_count"]
+        min_sessions = cfg["min_sessions"]
+        tokens_per = cfg["tokens_per"]
+        target = cfg["target"]
         for group in findings.get(category, []):
             count = _get(group, "count", 0)
             sessions = _get(group, "sessions", 1)

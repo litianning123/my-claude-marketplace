@@ -8,7 +8,7 @@ Analyzes recent Claude Code conversation transcripts to surface recurring ineffi
 
 Pipeline: scan transcripts → score messages with regex patterns → group by friction category → generate recommendations via heuristic templates → report → apply with approval.
 
-**No LLM dependency.** Rule generation uses templated heuristics keyed to pattern categories. Templates are editable in `references/rule-templates.md`.
+**No LLM dependency.** Rule generation uses templated heuristics keyed to pattern categories. Templates are editable in `references/rule-templates.json`.
 
 ## Install
 
@@ -50,7 +50,7 @@ efficiency-audit/
 ├── references/
 │   ├── category-guide.md
 │   ├── governance.md
-│   └── rule-templates.md
+│   └── rule-templates.json
 └── scripts/
     ├── audit.py
     ├── scanner.py
