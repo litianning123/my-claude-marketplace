@@ -112,7 +112,14 @@ def _print_text_report(findings: dict, deltas: dict, recs: list):
         if not total:
             continue
         title = CATEGORY_LABELS.get(key, key.upper())
-        print(f"--- {title} ({total} matches across {len(groups)} patterns) ---")
+        header = f"--- {title} ({total} matches across {len(groups)} patterns)"
+        # Wire up deltas: show trend vs baseline
+        d = deltas.get(key)
+        if d and d.get("previous", 0) > 0 and d.get("pct_change") is not None:
+            direction = "↓" if d["delta"] < 0 else ("↑" if d["delta"] > 0 else "→")
+            header += f", was {d['previous']}, {d['pct_change']:+d}% {direction}"
+        header += " ---"
+        print(header)
         for g in groups[:5]:
             count = g.count if hasattr(g, 'count') else g.get("count", 0)
             sessions = g.sessions if hasattr(g, 'sessions') else g.get("sessions", 1)
