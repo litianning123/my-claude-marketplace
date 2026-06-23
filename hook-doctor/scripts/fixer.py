@@ -2,7 +2,6 @@
 """Fix application — safe, idempotent repairs for hook config problems."""
 
 import json
-import os
 import re
 from pathlib import Path
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check engine — data model, protocol, and 7 static checks for hook configs."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import json
 import os
 import re
