@@ -20,27 +20,32 @@ python3 "${PLUGIN_ROOT}/scripts/audit.py" --days 30 [--project NAME]
 
 Reports findings in 5 categories: corrections, missing context, slow starts, automation candidates, git workflow errors. Also surfaces tool failures and hook errors.
 
+Noise is filtered automatically during parsing (see `references/noise-filters.md` for the 7 filter categories). If you see false positives in the report, the filter list is where to fix them — not by hand-editing findings.
+
 ## 2. Route
 
-The audit output includes a routing table showing where each rule should go. Detect which CLAUDE.md files exist first:
+`router.py` resolves each recommendation to the right CLAUDE.md file using data-driven scope analysis:
 
-```bash
-[ -f ~/.claude/CLAUDE.md ] && echo "global: yes" || echo "global: no"
-[ -f .claude/CLAUDE.md ]   && echo "project (.claude/): yes" || echo "project (.claude/): no"
-[ -f CLAUDE.md ]           && echo "project (root): yes"     || echo "project (root): no"
-```
+- **Detects file presence** — checks `~/.claude/CLAUDE.md`, `.claude/CLAUDE.md`, root `CLAUDE.md`
+- **Counts project distribution** — extracts which projects each pattern appears in from raw findings
+- **Applies concentration thresholds** — 3+ distinct projects → global; ≥70% in one repo → project; 2–3 projects, no dominant → weak recommendation
+- **Excludes non-CLAUDE.md targets** — settings.json → hookify:configure; hook-doctor → hook-doctor skill
+- **Generates structured A/B prompts** when both files exist — shows project distribution, "Seen in:" counts, and waits for user choice
 
-Routing rules:
+Routing rules the agent must follow:
 - **Only one file exists** → route there silently, no prompt needed
-- **Both global and project files exist** → show an A/B prompt and wait for the user to choose
+- **Both global and project files exist** → show the A/B prompt from `router.format_ab_prompt()` and wait for user choice
 - **Neither exists** → ask which to create before proceeding
-- **Project-specific rules** (all matches in one project) → route to project file
-- **Cross-project rules** (seen across 3+ projects) → recommend global, but confirm before writing
-- **Writing to `~/.claude/CLAUDE.md` affects every future session across all projects** — require explicit consent
+- **⚠️ Writing to `~/.claude/CLAUDE.md` affects every future session across all projects** — require explicit consent
+- **Checklist entries must carry target annotations** — `(global → ~/.claude/CLAUDE.md)` or `(project: repo-name → .claude/CLAUDE.md)`
 
 ## 3. Report
 
-Present recommendations ordered by impact. For each: rule text, evidence, routed target file, estimated tokens saved. Mark confidence (high/medium/low). User approves or skips each rule individually.
+Present recommendations ordered by impact. For each: rule text, evidence, routed target file (with annotation), estimated tokens saved, and confidence (high/medium/low). User approves or skips each rule individually.
+
+If the scorer reports a file over 200 lines, run `references/recipe-book.md` **before** presenting the report — the bloat must be remediated first or new rules will compound the problem. If the score is 0.0 (5000+ lines), the recipe book is mandatory.
+
+Use `router.format_checklist()` to display annotated checklist entries with target-file annotations.
 
 ## 4. Apply
 
@@ -72,3 +77,17 @@ After applying rules, scan `corrections` and `missing_context` examples for beha
 | automation_candidates | Recurring procedural intent | count ≥ 2 |
 | git_workflow_errors | Stale refs, bad cascades | count ≥ 2 |
 | hook_errors | Failing hook configs | Any — route to hook-doctor |
+
+## Reference Files
+
+Load these as needed during the audit — they are not loaded automatically:
+
+| File | When to read |
+|------|-------------|
+| `references/category-guide.md` | Phase 2 — interpreting pattern categories and thresholds |
+| `references/governance.md` | Phase 4 — SOSA™ approval rules before any file write |
+| `references/noise-filters.md` | When false positives appear — the 7 filter categories and how to add new ones |
+| `references/recipe-book.md` | When CLAUDE.md exceeds 200 lines — 4-step bloat remediation + stacked PR cascade rebase procedure |
+| `references/karpathy-guardrails.md` | Phase 5 — opt-in guardrails merge procedure |
+
+Re-run the audit every 2–4 weeks, or after significant workflow changes. Delta comparisons against the persisted baseline keep repeated runs meaningful.

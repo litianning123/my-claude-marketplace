@@ -209,12 +209,15 @@ def main():
         # Group rules by target file
         by_target: dict[Path, list[str]] = {}
         hook_recs = []
+        excluded_recs = []
         for rec, target, reasoning in resolved:
             target_name = getattr(rec, 'target', 'CLAUDE.md')
             if target_name == "hook-doctor":
                 hook_recs.append(rec)
-            elif target.level == "needs_decision":
-                # Both global and project exist — default to project (safer)
+            elif target.level == "excluded":
+                excluded_recs.append((rec, target))
+            elif target.level in ("needs_decision", "needs_creation"):
+                # Interactive mode required — default to project file (safer)
                 project_file = Path(".claude/CLAUDE.md") if Path(".claude/CLAUDE.md").exists() else Path("CLAUDE.md")
                 by_target.setdefault(project_file, []).append(getattr(rec, 'proposed_rule', ''))
             else:
