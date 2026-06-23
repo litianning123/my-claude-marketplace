@@ -6,9 +6,11 @@ Analyzes recent Claude Code conversation transcripts to surface recurring ineffi
 
 ## How it works
 
-Pipeline: scan transcripts → score messages with regex patterns → group by friction category → generate recommendations via heuristic templates → report → apply with approval.
+Pipeline: scan transcripts → score messages with regex patterns → group by friction category → generate recommendations via heuristic templates → **route to correct CLAUDE.md** → report → apply with approval.
 
 **No LLM dependency.** Rule generation uses templated heuristics keyed to pattern categories. Templates are editable in `references/rule-templates.json`.
+
+**Intelligent routing.** Each recommendation is routed to the right CLAUDE.md file — project-specific rules go to `.claude/CLAUDE.md`, cross-project patterns are flagged for global `~/.claude/CLAUDE.md` only with explicit consent. See `router.py`.
 
 ## Install
 
@@ -56,6 +58,7 @@ efficiency-audit/
     ├── scanner.py
     ├── patterns.py
     ├── synthesizer.py
+    ├── router.py
     ├── applier.py
     ├── scorer.py
     └── test_audit.py
