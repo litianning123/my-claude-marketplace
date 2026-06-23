@@ -41,7 +41,7 @@ def _confidence(count: int, sessions: int) -> str:
     return "low"
 
 
-def _build_rule(group, category: str, tokens_per: int) -> str:
+def _build_rule(group, category: str) -> str:
     """Build a natural-language rule from a finding group."""
     count = _get(group, "count", 0)
     sessions = _get(group, "sessions", 1)
@@ -104,7 +104,7 @@ def generate(findings: dict) -> list[Recommendation]:
                 continue
             scope_val = "project" if _get(group, "top_project") else "global"
             recommendations.append(Recommendation(
-                proposed_rule=_build_rule(group, category, tokens_per),
+                proposed_rule=_build_rule(group, category),
                 estimated_tokens_saved=count * tokens_per,
                 scope=scope_val,
                 target=target,
