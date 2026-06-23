@@ -9,13 +9,18 @@ Each plugin has a `.claude-plugin/plugin.json` manifest and a `skills/<name>/SKI
 | Skill | What it does |
 |-------|--------------|
 | [`hook-doctor`](hook-doctor/) | Inspects and repairs Claude Code hook configurations. Detects 7 common misconfigurations (unquoted path variables, missing/non-executable scripts, unknown events, invalid JSON, missing command fields, deprecated syntax) and applies safe, idempotent fixes for the 2 auto-fixable ones. |
+| [`efficiency-audit`](efficiency-audit/) | Analyzes Claude Code conversation transcripts to surface recurring inefficiencies — corrections, missing context, slow starts, automation candidates, git workflow errors, tool failures, and hook errors — then generates fix recommendations via heuristic rule engine and applies them as idempotent marker blocks in CLAUDE.md. |
 
 ## Development
 
 No build system or third-party dependencies. Scripts that ship tests use Python standard-library `unittest`, run from the script's directory:
 
 ```bash
+# hook-doctor
 cd hook-doctor/scripts && python3 -m unittest test_doctor -v
+
+# efficiency-audit
+cd efficiency-audit/scripts && python3 -m unittest test_audit -v
 ```
 
 ## Adding a new plugin
