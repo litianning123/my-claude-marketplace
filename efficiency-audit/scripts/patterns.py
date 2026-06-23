@@ -84,6 +84,17 @@ CATEGORY_SCORE_KEY = {
     "git_workflow_errors": "git_workflow",
 }
 
+CATEGORY_ORDER = tuple(CATEGORY_SCORE_KEY.keys())
+# "corrections", "missing_context", "slow_start_context", "automation_candidates", "git_workflow_errors"
+
+CATEGORY_LABELS = {
+    "corrections": "CORRECTIONS",
+    "missing_context": "MISSING CONTEXT",
+    "slow_start_context": "SLOW START",
+    "automation_candidates": "AUTOMATION CANDIDATES",
+    "git_workflow_errors": "GIT WORKFLOW ERRORS",
+}
+
 
 # --- Noise filter (imported from scanner, re-exported for convenience) ----------
 
