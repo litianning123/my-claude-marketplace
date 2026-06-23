@@ -1,0 +1,26 @@
+{
+  "name": "litianning123-marketplace",
+  "owner": { "name": "Tianning Li" },
+  "metadata": {
+    "description": "Claude Code plugins for workflow optimization — efficiency auditing, hook diagnosis & repair.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "hook-doctor",
+      "source": "./hook-doctor",
+      "description": "Inspects and repairs Claude Code hook configurations. Detects 7 common misconfigurations and applies safe, idempotent fixes.",
+      "version": "1.0.0",
+      "homepage": "https://github.com/litianning123/my-claude-marketplace",
+      "repository": "https://github.com/litianning123/my-claude-marketplace"
+    },
+    {
+      "name": "efficiency-audit",
+      "source": "./efficiency-audit",
+      "description": "Analyzes Claude Code conversation transcripts to surface recurring inefficiencies and generate fix recommendations via heuristic rule engine.",
+      "version": "1.0.0",
+      "homepage": "https://github.com/litianning123/my-claude-marketplace",
+      "repository": "https://github.com/litianning123/my-claude-marketplace"
+    }
+  ]
+}
