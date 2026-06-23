@@ -1,15 +1,6 @@
 # Karpathy Behavioral Guardrails (Phase 5 — Opt-in)
 
-Four coding discipline principles that prevent common LLM mistakes. The audit scans correction/context patterns for evidence of violations, then offers to merge the relevant principles into CLAUDE.md.
-
-Source: https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md
-
-## The Four Principles
-
-1. **Think Before Coding** — State assumptions before acting. Stop and ask when ambiguous. Flag with `[ASSUMED: ...]`.
-2. **Simplicity First** — Write only what was asked. No speculative features, unnecessary abstractions, or unrequested configurability.
-3. **Surgical Changes** — Touch only files the task requires. Don't refactor, reformat, or "improve" adjacent code. Note unrelated issues but don't fix them.
-4. **Goal-Driven Execution** — Define a verifiable success criterion before starting. Don't claim completion until the outcome is observable.
+Fetch the four principles from: https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md
 
 ## Evidence Detection
 
@@ -35,7 +26,7 @@ Each matching example = 1 hit. Accumulate across all finding groups. Minimum thr
 ## Merge Procedure
 
 1. Read the user's current CLAUDE.md (global or project-level, based on routing)
-2. Fetch the Karpathy guidelines from the source URL (WebFetch). Fall back to the principles above if unavailable
+2. Fetch the Karpathy guidelines from the source URL above (WebFetch; fall back to asking the user to paste if unavailable)
 3. Merge — do NOT blindly append:
    - **Deduplicate**: if the user already has a rule covering a principle, skip it
    - **Preserve** existing rules verbatim — never rephrase or reorder
@@ -46,4 +37,4 @@ Each matching example = 1 hit. Accumulate across all finding groups. Minimum thr
 
 ## Note
 
-This is an **opt-in** phase. Offer once if the hit threshold (2+) is met. If declined, do not offer again in this session. Governed by the same SOSA rules as Phase 4 — no writes without explicit approval.
+Opt-in. Offer once if the hit threshold (2+) is met. If declined, do not offer again in this session. Governed by SOSA rules — no writes without explicit approval.
