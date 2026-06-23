@@ -1,0 +1,4 @@
+{
+  "name": "hook-doctor",
+  "description": "Inspects and repairs Claude Code hook configurations. Detects unquoted path variables, missing scripts, non-executable scripts, unknown events, invalid JSON, missing command fields, and deprecated handler syntax — then applies safe, idempotent fixes with explicit approval."
+}
