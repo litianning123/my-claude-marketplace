@@ -1,0 +1,4 @@
+{
+  "name": "efficiency-audit",
+  "description": "Analyzes recent Claude Code conversation transcripts to surface recurring inefficiencies — repeated corrections, missing context, slow starts, automation candidates, git workflow errors, tool failures, and hook errors — then generates fix recommendations and applies them as idempotent marker blocks in CLAUDE.md."
+}
