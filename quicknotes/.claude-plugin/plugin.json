@@ -1,0 +1,5 @@
+{
+  "name": "quicknotes",
+  "version": "2.0.0",
+  "description": "Fast, zero-subprocess quick-note capture and management for Claude Code. Notes are centralized markdown files with JSON frontmatter (date, project, dir, tags, priority, due, refs), searchable via grep and taggable. The agent uses its built-in tools (Write, Read, Bash, Grep, Edit) to manipulate note files directly — no Python subprocess overhead. Trigger phrases: 'qn', 'quicknotes', 'write a quick note', 'jot this down', 'note to self', 'remind me to', 'add a note', 'list my notes', 'mark note done', 'what notes do I have', 'notes for this project'."
+}

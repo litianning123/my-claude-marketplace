@@ -2,8 +2,8 @@
   "name": "litianning123-marketplace",
   "owner": { "name": "Tianning Li" },
   "metadata": {
-    "description": "Claude Code plugins for workflow optimization — efficiency auditing, hook diagnosis & repair.",
-    "version": "1.0.0"
+    "description": "Claude Code plugins for workflow optimization — efficiency auditing, hook diagnosis & repair, zero-overhead quick notes.",
+    "version": "1.1.0"
   },
   "plugins": [
     {
@@ -19,6 +19,14 @@
       "source": "./efficiency-audit",
       "description": "Analyzes Claude Code conversation transcripts to surface recurring inefficiencies and generate fix recommendations via heuristic rule engine.",
       "version": "1.0.0",
+      "homepage": "https://github.com/litianning123/my-claude-marketplace",
+      "repository": "https://github.com/litianning123/my-claude-marketplace"
+    },
+    {
+      "name": "quicknotes",
+      "source": "./quicknotes",
+      "description": "Fast, zero-subprocess quick-note capture and management. Notes are centralized markdown files with JSON frontmatter, searchable via grep. The agent uses built-in tools directly — no Python overhead.",
+      "version": "2.0.0",
       "homepage": "https://github.com/litianning123/my-claude-marketplace",
       "repository": "https://github.com/litianning123/my-claude-marketplace"
     }
