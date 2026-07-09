@@ -1,0 +1,4 @@
+{
+  "name": "loop-creator",
+  "description": "Wizard-style skill that interviews users about their automation goal and generates ready-to-run Claude Code loop configurations — from simple /loop commands to full project folders to reusable skills. Encodes loop engineering best practices: readiness check, permission ladder, maker-checker verification, and manual-before-scheduled discipline."
+}
