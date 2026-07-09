@@ -90,26 +90,34 @@ If self-paced → dynamic `/loop` (no interval)
 
 ---
 
+## Answer-to-Parameter Mapping
+
+| Interview Q | Variable | Tier 1 (cmd) | Tier 2 (project) | Tier 3 (skill) |
+|-------------|----------|--------------|-------------------|----------------|
+| Q1: What task? | `goal` | `goal` | `goal` | `goal` |
+| Q2: How often? | `cadence` | `cadence` | `cadence` | — |
+| Q3: Verify how? | `verify` | `verify` | `verify` | — |
+| Q4: Access what? | `context` | `context` | — | — |
+| Q5: Stop when? | `stop` | `stop_condition` | `stop` | — |
+| Q6: Worst case? | `risk` | `risk` | — | — |
+| Q7: Walk through | `action` | `action` | `action` | `operating_procedure` |
+| Q8: Remember? | `stateful` | — | statefulness encoded in answers dict | — |
+| Q9: Team reuse? | `reusable` | — | — | if true → tier 3 |
+| Q10: Permission? | — | embedded in `safety` | `safety` | embedded in SKILL.md |
+| Q11: Fixed/self-paced? | — | embedded in `cadence` | embedded in `cadence` | — |
+
 ## Tier Detection
 
 After all questions, build an answers dict and run the detector:
 
 ```bash
 PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-python3 -c "
+echo '{"multi_step":<true|false>,"stateful":<true|false>,"external_tools":<true|false>,"human_review":<true|false>,"complex_verification":<true|false>,"reusable":<true|false>}' | python3 -c "
 import sys, json
 sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
 from tier_detector import detect_tier
-
-answers = {
-    'multi_step': <true|false>,
-    'stateful': <true|false>,
-    'external_tools': <true|false>,
-    'human_review': <true|false>,
-    'complex_verification': <true|false>,
-    'reusable': <true|false>,
-}
-tier, reasoning = detect_tier(answers)
+d = json.loads(sys.stdin.read())
+tier, reasoning = detect_tier(d)
 print(json.dumps({'tier': tier, 'reasoning': reasoning}))
 "
 ```
@@ -123,25 +131,19 @@ Wait for confirmation. If user says no, ask which tier they'd prefer.
 
 ## Output Generation
 
+## Escaping rule
+Before substituting user answers into JSON strings, escape any `"` or `\` characters in the answer text. Replace `"` with `\"` and `\` with `\\`.
+
 ### Tier 1: Command
 
 ```bash
 PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-python3 -c "
-import sys
+echo '{"goal":"<goal>","cadence":"<cadence>","context":"<context>","action":"<action>","stop_condition":"<stop>","verify":"<verify>","risk":"<risk>"}' | python3 -c "
+import sys, json
 sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
 from gen_command import generate_command, generate_manual_test_reminder
-
-cmd = generate_command(
-    goal='<goal>',
-    cadence='<cadence>',
-    context='<context>',
-    action='<action>',
-    stop_condition='<stop>',
-    verify='<verify>',
-    risk='<risk>',
-)
-print(cmd)
+d = json.loads(sys.stdin.read())
+print(generate_command(d['goal'], d['cadence'], d['context'], d['action'], d['stop_condition'], d['verify'], d['risk']))
 print()
 print(generate_manual_test_reminder())
 "
@@ -153,24 +155,12 @@ Present the command and reminder to the user. No files are written.
 
 ```bash
 PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-python3 -c "
+echo '{"goal":"<goal>","scope":"<scope>","expected_output":"<expected_output>","action":"<action>","verify":"<verify>","safety":"<safety>","cadence":"<cadence>","stop":"<stop>","initial_status":"<initial_status>","output_name":"<output_name>"}' | python3 -c "
 import sys, json
 sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
 from gen_project import generate_all_project_files
-
-answers = {
-    'goal': '<goal>',
-    'scope': '<scope>',
-    'expected_output': '<expected_output>',
-    'action': '<action>',
-    'verify': '<verify>',
-    'safety': '<safety>',
-    'cadence': '<cadence>',
-    'stop': '<stop>',
-    'initial_status': '<initial_status>',
-    'output_name': '<output_name>',
-}
-files = generate_all_project_files(answers)
+d = json.loads(sys.stdin.read())
+files = generate_all_project_files(d)
 print(json.dumps(files))
 "
 ```
@@ -199,17 +189,12 @@ Then generate the SKILL.md:
 
 ```bash
 PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-python3 -c "
-import sys
+echo '{"goal":"<goal>","trigger_phrases":"<triggers>","description":"<description>","operating_procedure":"<procedure>"}' | python3 -c "
+import sys, json
 sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
 from gen_skill import generate_skill_md, generate_reference_implementation
-
-skill = generate_skill_md(
-    goal='<goal>',
-    trigger_phrases='<triggers>',
-    description='<description>',
-    operating_procedure='<procedure>',
-)
+d = json.loads(sys.stdin.read())
+skill = generate_skill_md(d['goal'], d['trigger_phrases'], d['description'], d['operating_procedure'])
 print('===SKILL===')
 print(skill)
 print('===END_SKILL===')

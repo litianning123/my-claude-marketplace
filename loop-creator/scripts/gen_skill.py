@@ -13,6 +13,7 @@ from gen_project import generate_all_project_files
 
 def _derive_skill_name(goal: str) -> str:
     """Derive a kebab-case skill name from the goal string."""
+    goal = (goal or "").strip()
     name = goal.lower().strip()
     name = re.sub(r"[^a-z0-9\s-]", "", name)
     name = re.sub(r"\s+", "-", name)
