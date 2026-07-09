@@ -100,3 +100,52 @@ print('===END_SKILL===')
 ```
 
 Write the SKILL.md + reference implementation. Tell user where to place the skill.
+
+---
+
+## Discovery: Scan Transcripts
+
+```bash
+PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
+CURRENT_PROJECT=$(git -C "$(pwd)" remote get-url origin 2>/dev/null | sed 's|.*/||; s|\.git$||')
+[ -z "$CURRENT_PROJECT" ] && CURRENT_PROJECT=$(basename "$(pwd)")
+echo "{\"days\":30,\"project\":\"$CURRENT_PROJECT\"}" | python3 -c "
+import sys, json
+sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
+from discover import scan_sessions
+d = json.loads(sys.stdin.read())
+candidates = scan_sessions(days=d.get('days', 30), project=d.get('project'))
+print(json.dumps(candidates))
+"
+```
+
+If 0 candidates: "Nothing obvious found in your last 30 days. Want to create a loop from scratch?" → jump to Phase 1.
+
+If 1+ candidates, present each with rank, score, goal, and a one-line evidence summary:
+
+```
+Here's what I found in your recent sessions:
+
+1. CI Status Monitor (score 8.5)
+   Found you checking CI status in 5 sessions over 14 days.
+   Sample: "check if PR #42's CI passed"
+
+2. Daily Project Review (score 6.0)
+   Found "every morning" + workspace inspection pattern in 3 sessions.
+   Sample: "what changed in the repo since yesterday"
+
+Pick a number, or say "from scratch" to design your own, or "show more."
+```
+
+When user picks a candidate, pre-populate Phase 1:
+
+| Q | Discovery mode |
+|---|---------------|
+| Q1 | "I found you {sample_prompt} across {N} sessions. Create a '{goal}' loop?" |
+| Q2 | If cadence_hint set: "I see a {cadence_hint} pattern. Keep that?" If None: ask original Q2 |
+| Q3 | If verify_hint set: "You typically verify by {verify_hint}. Use that?" If None: ask original Q3 |
+| Q4 | "You access {context_hint or 'local files'}. Anything else?" |
+| Q5 | "You usually stop after one check. Escalate on failure?" |
+| Q6 | "{risk_hint or 'read-only'}. Any risk I'm missing?" |
+
+Phases 2-3 (Q7-Q11) are asked fresh. "from scratch" → skip to Phase 1. "show more" → re-run with max_candidates=10.

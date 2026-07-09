@@ -21,60 +21,7 @@ Wizard that interviews users and generates ready-to-run loop configurations. Enc
 
 Triggered by: "discover loops," "what can I automate," "find loop candidates," "what should I turn into a loop," "any tasks I could hand off to a loop."
 
-### Step 1: Scan transcripts
-
-```bash
-PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-CURRENT_PROJECT=$(git -C "$(pwd)" remote get-url origin 2>/dev/null | sed 's|.*/||; s|\.git$||')
-[ -z "$CURRENT_PROJECT" ] && CURRENT_PROJECT=$(basename "$(pwd)")
-echo "{\"days\":30,\"project\":\"$CURRENT_PROJECT\"}" | python3 -c "
-import sys, json
-sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
-from discover import scan_sessions
-d = json.loads(sys.stdin.read())
-candidates = scan_sessions(days=d.get('days', 30), project=d.get('project'))
-print(json.dumps(candidates))
-"
-```
-
-### Step 2: Present candidates
-
-If 0 candidates: "Nothing obvious found in your last 30 days. Want to create a loop from scratch?" → jump to Phase 1.
-
-If 1+ candidates: Show each with rank, score, goal, and a one-line evidence summary:
-
-```
-Here's what I found in your recent sessions:
-
-1. CI Status Monitor (score 8.5)
-   Found you checking CI status in 5 sessions over 14 days.
-   Sample: "check if PR #42's CI passed"
-
-2. Daily Project Review (score 6.0)
-   Found "every morning" + workspace inspection pattern in 3 sessions.
-   Sample: "what changed in the repo since yesterday"
-
-Pick a number, or say "from scratch" to design your own, or "show more."
-```
-
-### Step 3: Pre-populate Phase 1
-
-When user picks a candidate, replace Q1-Q6 with confirmation variants using the candidate's hints:
-
-| Q | Discovery mode (candidate selected) |
-|---|-------------------------------------|
-| Q1 | "I found you {sample_prompt} across {N} sessions. Create a '{goal}' loop?" |
-| Q2 | If `cadence_hint` set: "I see a {cadence_hint} pattern. Keep that?" If None: ask original Q2 |
-| Q3 | If `verify_hint` set: "You typically verify by {verify_hint}. Use that?" If None: ask original Q3 |
-| Q4 | "You access {context_hint or 'local files'}. Anything else?" |
-| Q5 | "You usually stop after one check. Escalate on failure?" (default; adjust per signal type) |
-| Q6 | "{risk_hint or 'read-only'}. Any risk I'm missing?" |
-
-Phases 2 and 3 (Q7-Q11) are asked fresh — discovery doesn't cover per-iteration details.
-
-If the user says "from scratch" at Step 2, skip to Phase 1 as normal.
-
-If the user says "show more," increase `max_candidates` to 10 and re-run the scan.
+Use the "Discovery: Scan Transcripts" invocation in `references/script-invocations.md`. If candidates found, present ranked list with score and evidence. If user picks one, pre-populate Q1-Q6 with confirmation variants (see reference file for the pre-population table). Q7-Q11 are asked fresh. "from scratch" → skip to Phase 1. "show more" → re-run with `max_candidates=10`.
 
 ## Interview Questions
 
