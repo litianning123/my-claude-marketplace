@@ -5,210 +5,99 @@ description: "Use when the user wants to create a Claude Code loop, set up recur
 
 # Loop Creator
 
-A wizard that interviews users about their automation goal and generates ready-to-run Claude Code loop configurations.
+Wizard that interviews users and generates ready-to-run loop configurations. Encodes loop engineering best practices: readiness check, permission ladder, maker-checker verification, and manual-before-scheduled discipline.
 
-## Core Principle
-
-**A loop is not just a repeated prompt. It needs: trigger, context, action, verification, state update, and decision.** This wizard encodes loop engineering best practices — readiness check, permission ladder, maker-checker verification, and manual-before-scheduled discipline.
+**Core principle:** A loop is not just a repeated prompt. It needs: trigger → context → action → verification → state update → decision.
 
 ## Flow
 
-1. Interview user (three phases, one question at a time)
-2. Run tier detector script to score answers
-3. Present tier recommendation with reasoning — wait for user confirmation
-4. Generate output using the matching generator script
-5. Write files (for tiers 2-3) or present command (for tier 1)
-6. ALWAYS include manual test instructions before scheduling advice
+1. Interview user (three phases, one question at a time) — push back on vague answers
+2. Run tier detector script → present reasoning → wait for user confirmation
+3. Generate output using the matching generator script
+4. Write files (tiers 2-3) or present command (tier 1)
+5. ALWAYS include manual test instructions before scheduling advice
 
----
+## Interview Questions
 
-## Phase 1: Readiness Gate
+Ask one at a time. Push back if answers are vague or sound like a "bad first loop" (broad, high-risk, unverifiable). Map answers to variables using the table in the next section.
 
-Ask one question at a time. If any answer is too vague, push back with a suggestion to narrow scope. The goal is to filter out "bad first loops" early.
+### Phase 1: Readiness Gate
 
-### Q1: "What task should this loop do? Describe it in one sentence."
+| # | Question | Guidance |
+|---|----------|----------|
+| Q1 | What task should this loop do? (one sentence) | Push back on broad answers like "improve my codebase." Narrow to one concrete, checkable action. |
+| Q2 | How often should this run? (e.g., 30m, daily, per PR, on file change) | Convert to cadence string: "every morning" → `24h`, "every 30 min" → `30m`. |
+| Q3 | How would you verify the output is correct? What makes a run "good" vs "needs fixing"? | Push back on vague: "it should look right." Probe for concrete: "report has all sections," "tests pass," "file exists at expected path." |
+| Q4 | What does Claude need access to? (folder, git history, GitHub, CI logs) | Determines context breadth and `external_tools` flag. |
+| Q5 | When should this loop stop or escalate? What's the stop condition? | Push back on "when it's done." Concrete: "stop after writing report + updating state" or "escalate if same error appears twice." |
+| Q6 | What's the worst that could happen if the loop gets it wrong? | Maps to permission level: "nothing, read-only" → L1; "bad report" → L2; "modify wrong file" → L3; "post something public" → L4+. |
 
-Wait for answer. If the answer is broad ("improve my codebase" / "clean my computer"), push back:
-"That's a big scope. A good first loop does one specific, checkable thing. Can we narrow this to one concrete action? For example: 'review the project folder and write a daily summary' rather than 'improve the codebase.'"
+### Phase 2: Scope & Shape
 
-### Q2: "How often should this run? (e.g., every 30 minutes, daily, every PR, on file change)"
+| # | Question | Guidance |
+|---|----------|----------|
+| Q7 | Walk me through one iteration. What should Claude do, step by step? | Extract: inputs (files/APIs/data), actions (inspect/summarize/classify/draft/fix/notify), outputs (where results go). |
+| Q8 | Does each run need to remember what happened in previous runs? | Yes → stateful (needs PROGRESS.md). No → stateless. |
+| Q9 | Is this just for you, or should others on your team reuse it? | Team reuse → +2 reusable bonus in tier detection. |
 
-Wait for answer. Convert to a cadence string for later use (e.g., "every morning" → "24h", "every 30 min" → "30m").
+### Phase 3: Cadence & Autonomy
 
-### Q3: "How would you verify the output is correct? What would make you say 'this run was good' vs 'this needs fixing'?"
-
-Wait for answer. If vague ("it should look right"), probe: "Can we make that more concrete? For example: 'the report has all required sections' or 'tests pass' or 'the file exists at the expected path.'"
-
-### Q4: "What does Claude need access to? (e.g., just this folder, git history, GitHub issues, CI logs)"
-
-Wait for answer. This determines context breadth and external tool needs.
-
-### Q5: "When should this loop stop or escalate to you? What's the stop condition?"
-
-Wait for answer. If vague ("when it's done"), push back: "Let's define a concrete stop condition. For example: 'stop after writing the report and updating state' or 'escalate if the same error appears twice.'"
-
-### Q6: "What's the worst that could happen if the loop gets it wrong?"
-
-Wait for answer. Map to permission level:
-- "Nothing, it's read-only" → Level 1
-- "It could write a bad report" → Level 2
-- "It could modify the wrong file" → Level 3
-- "It could post something public" → Level 4+
-
-## Phase 2: Scope & Shape
-
-### Q7: "Walk me through one iteration. What should Claude do, step by step?"
-
-Wait for answer. Extract:
-- Inputs: what files/APIs/data Claude reads
-- Actions: inspect, summarize, classify, draft, fix, notify
-- Outputs: where results go
-
-### Q8: "Does each run need to remember what happened in previous runs?"
-
-If yes → stateful, needs PROGRESS.md.
-If no → stateless, each run is independent.
-
-### Q9: "Is this just for you, or should others on your team be able to reuse it?"
-
-If team reuse → flag for tier detection (+2 reusable bonus).
-
-## Phase 3: Cadence & Autonomy
-
-### Q10: "What permission level feels right to start?"
-
-Present options derived from Q6 risk answer:
-1. Read-only — inspects and reports, changes nothing
-2. Draft output — writes reports/plans to an outputs/ folder
-3. Sandbox edits — modifies files only in an isolated workspace
-4. Human-approved writes — drafts actions, human approves before applying
-
-### Q11: "Should this run on a fixed schedule (every morning), or should it self-pace (check, then decide when to check again)?"
-
-If fixed → cron-based `/loop 24h`
-If self-paced → dynamic `/loop` (no interval)
-
----
+| # | Question | Guidance |
+|---|----------|----------|
+| Q10 | What permission level feels right to start? | Present options: (1) Read-only, (2) Draft output to outputs/, (3) Sandbox edits, (4) Human-approved writes. Derive default from Q6 risk. |
+| Q11 | Fixed schedule (every morning) or self-paced (check, then decide when to check again)? | Fixed → cron `/loop 24h`. Self-paced → dynamic `/loop` (no interval). |
 
 ## Answer-to-Parameter Mapping
 
-| Interview Q | Variable | Tier 1 (cmd) | Tier 2 (project) | Tier 3 (skill) |
-|-------------|----------|--------------|-------------------|----------------|
-| Q1: What task? | `goal` | `goal` | `goal` | `goal` |
-| Q2: How often? | `cadence` | `cadence` | `cadence` | — |
-| Q3: Verify how? | `verify` | `verify` | `verify` | — |
-| Q4: Access what? | `context` | `context` | — | — |
-| Q5: Stop when? | `stop` | `stop_condition` | `stop` | — |
-| Q6: Worst case? | `risk` | `risk` | — | — |
-| Q7: Walk through | `action` | `action` | `action` | `operating_procedure` |
-| Q8: Remember? | `stateful` | — | statefulness encoded in answers dict | — |
-| Q9: Team reuse? | `reusable` | — | — | if true → tier 3 |
-| Q10: Permission? | — | embedded in `safety` | `safety` | embedded in SKILL.md |
-| Q11: Fixed/self-paced? | — | embedded in `cadence` | embedded in `cadence` | — |
+| Q | Variable | Tier 1 (cmd) | Tier 2 (project) | Tier 3 (skill) |
+|---|----------|-------------|-------------------|----------------|
+| Q1 | `goal` | `goal` | `goal` | `goal` |
+| Q2 | `cadence` | `cadence` | `cadence` | — |
+| Q3 | `verify` | `verify` | `verify` | — |
+| Q4 | `context` | `context` | — | — |
+| Q5 | `stop` | `stop_condition` | `stop` | — |
+| Q6 | `risk` | `risk` | — | — |
+| Q7 | `action` | `action` | `action` | `operating_procedure` |
+| Q8 | `stateful` | — | encoded in answers dict | — |
+| Q9 | `reusable` | — | — | if true → tier 3 |
+| Q10 | — | embedded in `safety` | `safety` | embedded in SKILL.md |
+| Q11 | — | embedded in `cadence` | embedded in `cadence` | — |
 
 ## Tier Detection
 
-After all questions, build an answers dict and run the detector:
+Build answers dict from Q4/Q8/Q9 (binary flags) and Q1/Q5/Q3 (complexity signals):
 
-```bash
-PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-echo '{"multi_step":<true|false>,"stateful":<true|false>,"external_tools":<true|false>,"human_review":<true|false>,"complex_verification":<true|false>,"reusable":<true|false>}' | python3 -c "
-import sys, json
-sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
-from tier_detector import detect_tier
-d = json.loads(sys.stdin.read())
-tier, reasoning = detect_tier(d)
-print(json.dumps({'tier': tier, 'reasoning': reasoning}))
-"
-```
+- `multi_step`: true if Q7 describes 3+ distinct actions
+- `stateful`: true if Q8 = yes
+- `external_tools`: true if Q4 mentions anything beyond local files
+- `human_review`: true if Q6 risk ≥ L2
+- `complex_verification`: true if Q3 mentions tests, schemas, or multi-check
+- `reusable`: true if Q9 = team reuse
 
-Parse the JSON output. Present to user:
-"Based on your answers: {reasoning}. I recommend the **{tier}** tier. Sound good?"
-
-Wait for confirmation. If user says no, ask which tier they'd prefer.
-
----
+Run the detector using the invocation in `references/script-invocations.md` (Tier Detection section). Parse JSON. Present reasoning and wait for user confirmation. Never auto-select.
 
 ## Output Generation
 
-## Escaping rule
-Before substituting user answers into JSON strings, escape any `"` or `\` characters in the answer text. Replace `"` with `\"` and `\` with `\\`.
+**Escaping:** Before substituting user answers, escape `"` → `\"` and `\` → `\\`.
+
+**All invocation blocks** are in `references/script-invocations.md`. Load that file when generating output.
 
 ### Tier 1: Command
 
-```bash
-PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-echo '{"goal":"<goal>","cadence":"<cadence>","context":"<context>","action":"<action>","stop_condition":"<stop>","verify":"<verify>","risk":"<risk>"}' | python3 -c "
-import sys, json
-sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
-from gen_command import generate_command, generate_manual_test_reminder
-d = json.loads(sys.stdin.read())
-print(generate_command(d['goal'], d['cadence'], d['context'], d['action'], d['stop_condition'], d['verify'], d['risk']))
-print()
-print(generate_manual_test_reminder())
-"
-```
-
-Present the command and reminder to the user. No files are written.
+Use the "Tier 1: Command" block. Present the command + manual test reminder to user. No files written.
 
 ### Tier 2: Project
 
-```bash
-PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-echo '{"goal":"<goal>","scope":"<scope>","expected_output":"<expected_output>","action":"<action>","verify":"<verify>","safety":"<safety>","cadence":"<cadence>","stop":"<stop>","initial_status":"<initial_status>","output_name":"<output_name>"}' | python3 -c "
-import sys, json
-sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
-from gen_project import generate_all_project_files
-d = json.loads(sys.stdin.read())
-files = generate_all_project_files(d)
-print(json.dumps(files))
-"
-```
-
-Parse the JSON. Ask user where to create the project folder. Write each file using the Write tool.
-
-Then present the manual test prompt:
-```
-Run the <goal> loop for this workspace.
-
-Follow LOOP_INSTRUCTIONS.md exactly.
-Before acting, read TASK.md and PROGRESS.md.
-Do not modify any files except the allowed output paths.
-```
-
-And the scheduling command:
-```
-/loop <cadence> Run the <goal> loop. Follow LOOP_INSTRUCTIONS.md exactly.
-```
+Use the "Tier 2: Project" block. Ask user where to create the project folder. Write each file. Present the manual test prompt and scheduling command.
 
 ### Tier 3: Skill
 
-First, generate the project files (same as Tier 2) as the reference implementation.
-
-Then generate the SKILL.md:
-
-```bash
-PLUGIN_ROOT=$(ls -dt ~/.claude/plugins/cache/*/loop-creator/*/ 2>/dev/null | head -1)
-echo '{"goal":"<goal>","trigger_phrases":"<triggers>","description":"<description>","operating_procedure":"<procedure>"}' | python3 -c "
-import sys, json
-sys.path.insert(0, '${PLUGIN_ROOT}/scripts')
-from gen_skill import generate_skill_md, generate_reference_implementation
-d = json.loads(sys.stdin.read())
-skill = generate_skill_md(d['goal'], d['trigger_phrases'], d['description'], d['operating_procedure'])
-print('===SKILL===')
-print(skill)
-print('===END_SKILL===')
-"
-```
-
-Write the SKILL.md and reference implementation files. Tell the user where to place the skill (their skills directory).
-
----
+First, generate project files (same Tier 2 block) as reference. Then use the "Tier 3: Skill" block. Write SKILL.md + reference implementation. Tell user where to place the skill.
 
 ## Hard Rules
 
-1. **NEVER recommend scheduling without manual test instructions.** Every output must include a "run this manually first" section.
-2. **NEVER auto-select a tier.** Always present the reasoning and ask for confirmation.
-3. **Push back on vague answers.** If the user's task sounds like a "bad first loop" (vague, high-risk, unverifiable), say so and help them narrow scope.
-4. **The permission ladder is non-negotiable.** If a user wants full automation on first loop, recommend starting at Level 1-2 and earning more autonomy.
-5. **Scripts are for generation only.** Never use them to write files directly — you (the agent) control all Write operations after user approval.
+1. **NEVER recommend scheduling without manual test instructions.**
+2. **NEVER auto-select a tier.** Present reasoning, ask for confirmation.
+3. **Push back on vague answers.** Flag bad first loops early and help narrow scope.
+4. **The permission ladder is non-negotiable.** Recommend L1-2 for first loops.
+5. **Scripts are for generation only.** Agent controls all file writes after user approval.
