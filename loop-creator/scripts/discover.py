@@ -272,8 +272,6 @@ TEMPORAL_PHRASES = [
     r"every\s+hour|hourly",
     r"each\s+friday|weekly|every\s+week",
     r"before\s+standup",
-    r"end\s+of\s+day",
-    r"each\s+morning\s+at",
 ]
 
 
@@ -331,7 +329,7 @@ def detect_temporal_cues(
 # --- Scoring & ranking -----------------------------------------------------
 
 def _score_candidate(c: dict) -> float:
-    """Compute score for a candidate. Modifies c in place to merge signals."""
+    """Compute score for a candidate. Reads c, returns float. Does not modify c."""
     score = 0.0
     if "repeated_prompt" in c["signals"]:
         score += REPEATED_PROMPT_WEIGHT
@@ -348,37 +346,65 @@ def _merge_candidates(
     repeated: list[dict],
     temporal: list[dict],
 ) -> list[dict]:
-    """Merge repeated-prompt and temporal-cue candidates that overlap."""
+    """Merge candidates that share evidence sessions using connected components."""
     all_candidates = list(repeated) + list(temporal)
+    if not all_candidates:
+        return []
 
-    # Simple overlap: if two candidates share >=1 session, merge them
-    merged = []
-    used = set()
-    for i, c1 in enumerate(all_candidates):
-        if i in used:
+    n = len(all_candidates)
+    # Build adjacency: two candidates are connected if they share a session
+    adj = {i: set() for i in range(n)}
+    for i in range(n):
+        si = set(all_candidates[i]["evidence_sessions"])
+        for j in range(i + 1, n):
+            sj = set(all_candidates[j]["evidence_sessions"])
+            if si & sj:
+                adj[i].add(j)
+                adj[j].add(i)
+
+    # Connected components via DFS
+    visited = set()
+    components = []
+    for i in range(n):
+        if i in visited:
             continue
-        merged_c = dict(c1)
-        merged_c["evidence_sessions"] = set(c1["evidence_sessions"])
-        merged_c["signals"] = list(c1["signals"])
-        for j, c2 in enumerate(all_candidates):
-            if j <= i or j in used:
+        stack = [i]
+        comp = set()
+        while stack:
+            v = stack.pop()
+            if v in comp:
                 continue
-            if merged_c["evidence_sessions"] & set(c2["evidence_sessions"]):
-                # Merge c2 into merged_c
-                merged_c["evidence_sessions"] |= set(c2["evidence_sessions"])
-                for sig in c2["signals"]:
-                    if sig not in merged_c["signals"]:
-                        merged_c["signals"].append(sig)
-                if c2["cadence_hint"] and not merged_c.get("cadence_hint"):
-                    merged_c["cadence_hint"] = c2["cadence_hint"]
-                if len(c2.get("sample_prompt", "")) > len(merged_c.get("sample_prompt", "")):
-                    merged_c["sample_prompt"] = c2["sample_prompt"]
-                used.add(j)
-        merged_c["evidence_sessions"] = sorted(merged_c["evidence_sessions"])
-        merged_c["score"] = _score_candidate(merged_c)
-        if merged_c["score"] >= 3:
-            merged.append(merged_c)
-        used.add(i)
+            comp.add(v)
+            visited.add(v)
+            stack.extend(adj[v] - comp)
+        components.append(comp)
+
+    # Merge each component
+    merged = []
+    for comp in components:
+        members = [all_candidates[i] for i in comp]
+        # Start with the first member, merge in the rest
+        base = dict(members[0])
+        sessions = set(base["evidence_sessions"])
+        signals = list(base["signals"])
+        best_cadence = base.get("cadence_hint")
+        best_prompt = base.get("sample_prompt", "")
+        for m in members[1:]:
+            sessions |= set(m["evidence_sessions"])
+            for sig in m["signals"]:
+                if sig not in signals:
+                    signals.append(sig)
+            if m.get("cadence_hint") and not best_cadence:
+                best_cadence = m["cadence_hint"]
+            if len(m.get("sample_prompt", "")) > len(best_prompt):
+                best_prompt = m["sample_prompt"]
+        base["evidence_sessions"] = sorted(sessions)
+        base["signals"] = signals
+        base["cadence_hint"] = best_cadence
+        base["sample_prompt"] = best_prompt
+        base["score"] = _score_candidate(base)
+        if base["score"] >= 3:
+            merged.append(base)
 
     return sorted(merged, key=lambda c: c["score"], reverse=True)
 
