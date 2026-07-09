@@ -116,5 +116,32 @@ class DetectTierTests(unittest.TestCase):
         self.assertIn("stateful", reasoning.lower())
 
 
+    def test_all_factors_true_without_reusable_returns_skill(self):
+        """Score 5 without reusable → skill (complex, not reusable-labeled)."""
+        answers = {
+            "multi_step": True,
+            "stateful": True,
+            "external_tools": True,
+            "human_review": True,
+            "complex_verification": True,
+            "reusable": False,
+        }
+        tier, reasoning = detect_tier(answers)
+        self.assertEqual(tier, "skill")
+        self.assertNotIn("reusable", reasoning.lower())
+
+    def test_missing_keys_do_not_crash(self):
+        """Missing keys should default gracefully (no crash)."""
+        tier, reasoning = detect_tier({})
+        self.assertEqual(tier, "command")
+        self.assertIn("no complexity factors", reasoning.lower())
+
+    def test_non_dict_input_returns_command(self):
+        """Non-dict input should return command tier gracefully."""
+        tier, reasoning = detect_tier(None)
+        self.assertEqual(tier, "command")
+        self.assertIn("invalid input", reasoning.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

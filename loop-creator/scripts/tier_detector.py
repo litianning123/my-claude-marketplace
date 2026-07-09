@@ -23,6 +23,9 @@ def detect_tier(answers: dict) -> tuple[str, str]:
 
     Reusable always promotes to skill regardless of score.
     """
+    if not isinstance(answers, dict):
+        return "command", "Score 0 — invalid input (expected dict). Recommended: a simple /loop command."
+
     score = 0
     factors = []
 
@@ -55,7 +58,7 @@ def detect_tier(answers: dict) -> tuple[str, str]:
         tier_label = "a project folder with TASK.md, LOOP_INSTRUCTIONS.md, and PROGRESS.md"
     else:
         tier = "skill"
-        tier_label = "a reusable SKILL.md + reference implementation"
+        tier_label = "a complex SKILL.md + reference implementation (all complexity factors present)"
 
     reasoning = _build_reasoning(tier_label, score, factors)
     return tier, reasoning
