@@ -83,6 +83,36 @@ class GenerateSkillMdTests(unittest.TestCase):
         self.assertIn("description:", result.lower())
         self.assertIn("Check CI status", result)
 
+    def test_description_starts_with_use_when(self):
+        result = generate_skill_md(
+            self.goal, self.trigger_phrases,
+            self.description, self.operating_procedure,
+        )
+        self.assertIn("Use when", result)
+
+    def test_includes_file_structure_section(self):
+        result = generate_skill_md(
+            self.goal, self.trigger_phrases,
+            self.description, self.operating_procedure,
+        )
+        self.assertIn("File Structure", result)
+
+    def test_includes_common_mistakes(self):
+        result = generate_skill_md(
+            self.goal, self.trigger_phrases,
+            self.description, self.operating_procedure,
+        )
+        self.assertIn("Common Mistakes", result)
+
+    def test_no_placeholders_in_output(self):
+        """Generated skill should not contain TBD or TODO."""
+        result = generate_skill_md(
+            self.goal, self.trigger_phrases,
+            self.description, self.operating_procedure,
+        )
+        self.assertNotIn("TBD", result)
+        self.assertNotIn("TODO", result)
+
 
 class GenerateReferenceImplementationTests(unittest.TestCase):
     def setUp(self):

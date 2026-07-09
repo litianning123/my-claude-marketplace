@@ -7,18 +7,17 @@ Produces:
   generate_reference_implementation(...) -> dict[str, str]
 """
 
-from textwrap import dedent
+import re
 from gen_project import generate_all_project_files
 
 
-def _slugify(text: str) -> str:
-    """Convert a goal string into a slug suitable for a skill name."""
-    return text.lower().strip().replace(" ", "-")
-
-
-def _indent(text: str, prefix: str = "    ") -> str:
-    """Indent each non-empty line of text with prefix."""
-    return "\n".join(prefix + line for line in text.split("\n"))
+def _derive_skill_name(goal: str) -> str:
+    """Derive a kebab-case skill name from the goal string."""
+    name = goal.lower().strip()
+    name = re.sub(r"[^a-z0-9\s-]", "", name)
+    name = re.sub(r"\s+", "-", name)
+    name = re.sub(r"-+", "-", name)
+    return name.strip("-")
 
 
 def generate_skill_md(
@@ -38,27 +37,78 @@ def generate_skill_md(
     Returns:
         Complete SKILL.md content as a string.
     """
-    name = _slugify(goal)
+    name = _derive_skill_name(goal)
+    triggers = trigger_phrases or goal.lower()
 
-    desc = description.strip() if description.strip() else f"Automated skill for: {goal}"
-    triggers = trigger_phrases.strip()
-    if triggers:
-        desc += f" Trigger phrases: {triggers}"
+    return f"""\
+---
+name: {name}
+description: "Use when {description}. Trigger phrases: {triggers}."
+---
 
-    title = goal.strip().title() + " Skill"
+# {goal.title()}
 
-    procedure_indented = _indent(operating_procedure.strip())
+## Overview
+A repeatable loop for: {goal}.
 
-    return dedent(f"""\
-    ---
-    name: {name}
-    description: "{desc}"
-    ---
+## When to Use
+- When the user asks for: {triggers}
+- When the task repeats on a schedule
+- When the output can be verified against a checklist
 
-    # {title}
+## File Structure
+Create this workspace before the first run:
 
-    {procedure_indented}
-    """)
+```
+<loop-name>/
+├── TASK.md
+├── LOOP_INSTRUCTIONS.md
+├── PROGRESS.md
+└── outputs/
+    └── <output-file>.md
+```
+
+Templates for each file are in the reference implementation.
+
+## Operating Procedure
+{operating_procedure}
+
+## Verification Checklist
+Before ending the run, verify:
+- Output file exists
+- All required sections are present
+- PROGRESS.md was updated
+- No files outside allowed paths were modified
+
+## Safety Rules
+- Do not delete, rename, or move files
+- Do not modify source files
+- Only write to the explicitly allowed output paths
+- Mark anything uncertain for human review
+
+## Manual Before Scheduled
+Run the loop manually 3-5 times before scheduling. Check:
+- Output is useful and concise
+- State file is updated correctly
+- Safety boundaries are respected
+- Verification passes consistently
+
+## Scheduling
+Once manual runs are stable:
+```
+/loop <cadence> Run the {goal} loop. Follow LOOP_INSTRUCTIONS.md exactly.
+```
+
+## Common Mistakes
+- Scheduling before manual testing
+- Skipping state file update at end of run
+- Letting output grow too verbose
+- Forgetting to check verification before marking done
+- Treating first successful run as proof of reliability
+
+## Reference
+See `reference-implementation/` for a complete working example.
+"""
 
 
 def generate_reference_implementation(
@@ -107,10 +157,5 @@ def generate_reference_implementation(
         "output_name": output_name,
     }
 
-    project_files = generate_all_project_files(answers)
-
-    prefixed = {}
-    for filename, content in project_files.items():
-        prefixed[f"reference-implementation/{filename}"] = content
-
-    return prefixed
+    files = generate_all_project_files(answers)
+    return {f"reference-implementation/{k}": v for k, v in files.items()}
