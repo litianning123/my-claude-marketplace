@@ -1,0 +1,34 @@
+{
+  "name": "loop-creator",
+  "version": "1.0.0",
+  "description": "Wizard-style skill that interviews users about their automation goal and generates ready-to-run Claude Code loop configurations — from simple /loop commands to full project folders to reusable skills. Encodes loop engineering best practices: readiness check, permission ladder, maker-checker verification, and manual-before-scheduled discipline.",
+  "scripts": {
+    "test": "cd scripts && python3 -m unittest discover -q"
+  },
+  "keywords": [
+    "claude-code",
+    "skill",
+    "loop",
+    "automation",
+    "scheduling",
+    "cron",
+    "recurring",
+    "discovery"
+  ],
+  "author": "litianning123 <76742219+litianning123@users.noreply.github.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/litianning123/my-claude-marketplace"
+  },
+  "claudeCode": {
+    "skillType": "skill"
+  },
+  "files": [
+    ".claude-plugin/",
+    "skills/",
+    "scripts/",
+    "references/",
+    "README.md"
+  ]
+}
