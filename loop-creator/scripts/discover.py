@@ -146,3 +146,267 @@ def read_user_messages(
             results[f.stem] = messages
 
     return results
+
+
+# --- Cadence extraction ---------------------------------------------------
+
+CADENCE_PATTERNS = [
+    (r"every\s+(\d+)\s*minutes?", lambda m: f"{m.group(1)}m"),
+    (r"every\s+half\s*hour", lambda m: "30m"),
+    (r"every\s+hour|hourly", lambda m: "1h"),
+    (r"every\s+morning|daily|each\s+day|before\s+standup", lambda m: "24h"),
+    (r"each\s+friday|weekly|every\s+week", lambda m: "7d"),
+]
+
+EVENT_PATTERNS = [
+    r"after\s+every\s+PR",
+    r"on\s+new\s+pull\s+request",
+    r"per\s+pull\s+request",
+    r"when\s+a\s+PR\s+is",
+    r"on\s+every\s+commit",
+    r"when\s+CI\s+fails",
+]
+
+
+def extract_cadence(text: str) -> str | None:
+    """Extract a cadence string from temporal phrases. Returns None if no match."""
+    low = text.lower()
+    for pat in EVENT_PATTERNS:
+        if re.search(pat, low):
+            return None  # event-driven, not time-based
+    for pat, fn in CADENCE_PATTERNS:
+        m = re.search(pat, low)
+        if m:
+            return fn(m)
+    return None
+
+
+# --- Signal: repeated_prompt -----------------------------------------------
+
+REPEATED_PROMPT_WEIGHT = 5
+REPEATED_MIN_SESSIONS = 3
+JACCARD_THRESHOLD = 0.7
+
+
+def detect_repeated_prompts(
+    sessions: dict[str, list[str]],
+) -> list[dict]:
+    """Find user messages repeated across >=3 sessions with Jaccard >= 0.7."""
+    # Build list of (session_id, message_text, tokens) for all user messages
+    all_msgs: list[tuple[str, str, set[str]]] = []
+    for sid, msgs in sessions.items():
+        for msg in msgs:
+            tokens = tokenize(msg)
+            if tokens:  # skip empty messages after tokenization
+                all_msgs.append((sid, msg, tokens))
+
+    # Group similar messages across distinct sessions
+    candidates: list[dict] = []
+    seen_pairs: set[tuple[int, int]] = set()
+
+    for i in range(len(all_msgs)):
+        for j in range(i + 1, len(all_msgs)):
+            if (i, j) in seen_pairs:
+                continue
+            sid_i, msg_i, tok_i = all_msgs[i]
+            sid_j, msg_j, tok_j = all_msgs[j]
+            if sid_i == sid_j:
+                continue  # same session — not "repeated across sessions"
+            sim = jaccard_similarity(tok_i, tok_j)
+            if sim < JACCARD_THRESHOLD:
+                continue
+
+            # Found a pair — grow the cluster
+            cluster_sessions = {sid_i, sid_j}
+            cluster_msgs = [msg_i, msg_j]
+            cluster_indices = {i, j}
+            seen_pairs.add((i, j))
+
+            for k in range(len(all_msgs)):
+                if k in cluster_indices:
+                    continue
+                sid_k, msg_k, tok_k = all_msgs[k]
+                if sid_k in cluster_sessions:
+                    continue  # already have this session
+                # Check similarity to any message already in cluster
+                for _, _, existing_tok in [all_msgs[idx] for idx in cluster_indices]:
+                    if jaccard_similarity(tok_k, existing_tok) >= JACCARD_THRESHOLD:
+                        cluster_sessions.add(sid_k)
+                        cluster_msgs.append(msg_k)
+                        cluster_indices.add(k)
+                        break
+
+            if len(cluster_sessions) >= REPEATED_MIN_SESSIONS:
+                # Use the longest message as sample_prompt
+                sample = max(cluster_msgs, key=len)
+                # Derive a goal from the sample
+                first = next((m for m in cluster_msgs if len(m.split()) >= 3), sample)
+                goal = first[:80].strip()
+                if len(first) > 80:
+                    goal = goal.rsplit(" ", 1)[0] + "..."
+
+                candidates.append({
+                    "goal": goal,
+                    "cadence_hint": None,
+                    "context_hint": None,
+                    "action_hint": sample,
+                    "verify_hint": None,
+                    "risk_hint": "read-only",
+                    "signals": ["repeated_prompt"],
+                    "evidence_sessions": sorted(cluster_sessions),
+                    "sample_prompt": sample,
+                })
+
+    return candidates
+
+
+# --- Signal: temporal_cue ---------------------------------------------------
+
+TEMPORAL_CUE_WEIGHT = 5
+
+TEMPORAL_PHRASES = [
+    r"every\s+morning",
+    r"every\s+day|daily|each\s+day",
+    r"every\s+\d+\s*minutes?",
+    r"every\s+half\s*hour",
+    r"every\s+hour|hourly",
+    r"each\s+friday|weekly|every\s+week",
+    r"before\s+standup",
+    r"end\s+of\s+day",
+    r"each\s+morning\s+at",
+]
+
+
+def detect_temporal_cues(
+    sessions: dict[str, list[str]],
+) -> list[dict]:
+    """Find messages with temporal phrases indicating a recurring cadence."""
+    # Group messages by cadence
+    cadence_groups: dict[str, dict] = defaultdict(lambda: {
+        "sessions": set(),
+        "messages": [],
+        "cadence": None,
+    })
+
+    for sid, msgs in sessions.items():
+        for msg in msgs:
+            low = msg.lower()
+            for phrase_pat in TEMPORAL_PHRASES:
+                if re.search(phrase_pat, low):
+                    cad = extract_cadence(msg)
+                    if cad is None:
+                        # Event-driven — skip for v1
+                        continue
+                    key = cad  # group by cadence string
+                    cadence_groups[key]["sessions"].add(sid)
+                    cadence_groups[key]["messages"].append(msg)
+                    cadence_groups[key]["cadence"] = cad
+                    break
+
+    candidates = []
+    for cad, group in cadence_groups.items():
+        if len(group["sessions"]) < 2:
+            continue  # need at least 2 sessions with temporal pattern
+        sample = max(group["messages"], key=len)
+        first = next((m for m in group["messages"] if len(m.split()) >= 3), sample)
+        goal = first[:80].strip()
+        if len(first) > 80:
+            goal = goal.rsplit(" ", 1)[0] + "..."
+
+        candidates.append({
+            "goal": goal,
+            "cadence_hint": group["cadence"],
+            "context_hint": None,
+            "action_hint": sample,
+            "verify_hint": None,
+            "risk_hint": "read-only",
+            "signals": ["temporal_cue"],
+            "evidence_sessions": sorted(group["sessions"]),
+            "sample_prompt": sample,
+        })
+
+    return candidates
+
+
+# --- Scoring & ranking -----------------------------------------------------
+
+def _score_candidate(c: dict) -> float:
+    """Compute score for a candidate. Modifies c in place to merge signals."""
+    score = 0.0
+    if "repeated_prompt" in c["signals"]:
+        score += REPEATED_PROMPT_WEIGHT
+    if "temporal_cue" in c["signals"]:
+        score += TEMPORAL_CUE_WEIGHT
+    if len(c["evidence_sessions"]) >= 3:
+        score += 1  # bonus for strong evidence
+    if c["cadence_hint"] is not None:
+        score += 1  # bonus for pre-filled cadence
+    return score
+
+
+def _merge_candidates(
+    repeated: list[dict],
+    temporal: list[dict],
+) -> list[dict]:
+    """Merge repeated-prompt and temporal-cue candidates that overlap."""
+    all_candidates = list(repeated) + list(temporal)
+
+    # Simple overlap: if two candidates share >=1 session, merge them
+    merged = []
+    used = set()
+    for i, c1 in enumerate(all_candidates):
+        if i in used:
+            continue
+        merged_c = dict(c1)
+        merged_c["evidence_sessions"] = set(c1["evidence_sessions"])
+        merged_c["signals"] = list(c1["signals"])
+        for j, c2 in enumerate(all_candidates):
+            if j <= i or j in used:
+                continue
+            if merged_c["evidence_sessions"] & set(c2["evidence_sessions"]):
+                # Merge c2 into merged_c
+                merged_c["evidence_sessions"] |= set(c2["evidence_sessions"])
+                for sig in c2["signals"]:
+                    if sig not in merged_c["signals"]:
+                        merged_c["signals"].append(sig)
+                if c2["cadence_hint"] and not merged_c.get("cadence_hint"):
+                    merged_c["cadence_hint"] = c2["cadence_hint"]
+                if len(c2.get("sample_prompt", "")) > len(merged_c.get("sample_prompt", "")):
+                    merged_c["sample_prompt"] = c2["sample_prompt"]
+                used.add(j)
+        merged_c["evidence_sessions"] = sorted(merged_c["evidence_sessions"])
+        merged_c["score"] = _score_candidate(merged_c)
+        if merged_c["score"] >= 3:
+            merged.append(merged_c)
+        used.add(i)
+
+    return sorted(merged, key=lambda c: c["score"], reverse=True)
+
+
+# --- Public API ------------------------------------------------------------
+
+def scan_sessions(
+    days: int = 30,
+    project: str | None = None,
+    max_candidates: int = 5,
+) -> list[dict]:
+    """Scan session transcripts and return ranked loop candidates.
+
+    Returns list of dicts sorted by score descending, capped at max_candidates.
+    Only candidates with score >= 3 are returned.
+    """
+    sessions = read_user_messages(days=days, project=project)
+    if not sessions:
+        return []
+
+    repeated = detect_repeated_prompts(sessions)
+    temporal = detect_temporal_cues(sessions)
+
+    candidates = _merge_candidates(repeated, temporal)
+
+    # Cap and rank
+    top = candidates[:max_candidates]
+    for i, c in enumerate(top):
+        c["rank"] = i + 1
+
+    return top
