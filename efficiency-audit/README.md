@@ -1,5 +1,7 @@
 # efficiency-audit
 
+[中文](README.zh-CN.md)
+
 Analyzes recent Claude Code conversation transcripts to surface recurring inefficiencies — repeated corrections, missing context, slow session starts, automation candidates, git workflow errors, tool failures, and hook errors — then generates fix recommendations via a heuristic rule engine and applies them as idempotent marker blocks in CLAUDE.md.
 
 > **Canonical behavior lives in [`SKILL.md`](skills/efficiency-audit/SKILL.md).** This README covers human-facing install, CLI usage, and testing.

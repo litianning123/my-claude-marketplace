@@ -1,5 +1,7 @@
 # Loop Creator
 
+[中文](README.zh-CN.md)
+
 A Claude Code plugin that helps you design and generate loop configurations through a guided interview. 
 
 ## What it does

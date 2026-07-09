@@ -1,5 +1,7 @@
 # hook-doctor
 
+[中文](README.zh-CN.md)
+
 Inspects and repairs **Claude Code plugin hook configurations** — the `hooks/hooks.json`
 files under `~/.claude/plugins/` and user/project `settings.json`. Scans every installed
 plugin for known hook-config problems, reports them, and (with explicit opt-in) applies

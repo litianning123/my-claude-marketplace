@@ -1,5 +1,7 @@
 # Quicknotes
 
+[中文](README.zh-CN.md)
+
 Fast, zero-subprocess quick-note capture and management for Claude Code.
 
 ## Why This Exists

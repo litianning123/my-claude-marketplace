@@ -1,5 +1,7 @@
 # my-claude-marketplace
 
+[中文](README.zh-CN.md)
+
 A collection of [Claude Code](https://claude.com/claude-code) **plugins** — each delivering a skill that extends Claude's capabilities with a specialized, repeatable workflow.
 
 Each plugin has a `.claude-plugin/plugin.json` manifest and a `skills/<name>/SKILL.md` that becomes Claude's operating instructions once the skill activates. Supporting scripts live under `<plugin>/scripts/`. No build system or third-party dependencies — skills are Markdown plus stdlib-only Python.
