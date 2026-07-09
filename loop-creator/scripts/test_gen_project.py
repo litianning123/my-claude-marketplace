@@ -123,7 +123,7 @@ class GenerateProgressMdTests(unittest.TestCase):
 class GenerateOutputStarterTests(unittest.TestCase):
     def test_returns_placeholder(self):
         result = generate_output_starter("daily-review.md")
-        self.assertIn("daily-review.md", result.lower() if result else "")
+        self.assertIn("daily review", result.lower() if result else "")
         self.assertIn("No loop run", result)
 
 

@@ -170,7 +170,7 @@ def generate_progress_md(goal: str, initial_status: str) -> str:
 def generate_output_starter(output_name: str) -> str:
     """Generate a starter output file."""
     base = output_name.replace(".md", "").replace("outputs/", "").replace("-", " ").title()
-    return f"# {base}\n\nOutput file: {output_name}\nNo loop run has been completed yet.\n"
+    return f"# {base}\n\nNo loop run has been completed yet.\n"
 
 
 def generate_all_project_files(answers: dict) -> dict[str, str]:
