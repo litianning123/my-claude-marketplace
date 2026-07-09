@@ -18,21 +18,6 @@ from discover import (
 )
 
 
-def _make_transcript(messages: list[dict], project_name: str = "test-project") -> Path:
-    """Create a temp JSONL transcript file in ~/.claude/projects/<project>/<session>.jsonl."""
-    tmp_root = Path(tempfile.mkdtemp())
-    proj_dir = tmp_root / ".claude" / "projects" / project_name
-    proj_dir.mkdir(parents=True)
-    path = proj_dir / "session-001.jsonl"
-    with open(path, "w") as f:
-        for msg in messages:
-            f.write(json.dumps(msg) + "\n")
-    now = datetime.now(tz=timezone.utc).timestamp()
-    os.utime(path, (now, now))
-    # Return the tmp_root so tests can override HOME
-    return tmp_root
-
-
 class TokenizeTests(unittest.TestCase):
     def test_lowercase_and_split(self):
         tokens = tokenize("Check If CI Passed")

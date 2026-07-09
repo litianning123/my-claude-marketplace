@@ -1,6 +1,6 @@
 ---
 name: loop-creator
-description: "Use when the user wants to create a Claude Code loop, set up recurring automation, schedule a repeated task, build a /loop command, create a polling workflow, or design any agentic loop. Trigger phrases: 'create a loop', 'set up a loop', 'build a loop', 'automate this to run', 'schedule this task', 'make this recurring', 'I want a loop for', 'design a loop', '/loop creator'."
+description: "Use when the user wants to create a Claude Code loop, set up recurring automation, schedule a repeated task, build a /loop command, create a polling workflow, design any agentic loop, or discover loops from session history. Trigger phrases: 'create a loop', 'set up a loop', 'build a loop', 'automate this to run', 'schedule this task', 'make this recurring', 'I want a loop for', 'design a loop', '/loop creator', 'discover loops', 'what can I automate', 'find loop candidates', 'what should I turn into a loop', 'any tasks I could hand off to a loop'."
 ---
 
 # Loop Creator
