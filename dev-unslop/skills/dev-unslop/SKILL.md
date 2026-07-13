@@ -13,6 +13,10 @@ Technical readers scan for signal. Every filler word, throat-clearing intro, or 
 
 When you encounter AI-generated prose, the slop follows predictable patterns. You know these patterns. You've seen them a thousand times. Your job is to recognize and remove them without introducing new ones.
 
+### Assume reader competence
+
+Your reader is a working engineer. Don't "break this down" or explain concepts they already know. Skip the basic explanation — if someone is reading a PR description or a README, they know what caching is, what a race condition is, what an API does. The most patronizing thing an AI can do in technical writing is explain the obvious. Don't do it.
+
 ## What to do when invoked
 
 1. Read the target text (file, diff, PR description, comment block)
