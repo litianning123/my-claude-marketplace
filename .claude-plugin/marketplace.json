@@ -4,7 +4,7 @@
     "name": "Tianning Li"
   },
   "metadata": {
-    "description": "Claude Code plugins for workflow optimization \u2014 efficiency auditing, hook diagnosis & repair, zero-overhead quick notes, and loop automation.",
+    "description": "Claude Code plugins for workflow optimization — efficiency auditing, hook diagnosis & repair, zero-overhead quick notes, and loop automation.",
     "version": "1.2.0"
   },
   "plugins": [
@@ -27,7 +27,7 @@
     {
       "name": "quicknotes",
       "source": "./quicknotes",
-      "description": "Fast, zero-subprocess quick-note capture and management. Notes are centralized markdown files with JSON frontmatter, searchable via grep. The agent uses built-in tools directly \u2014 no Python overhead.",
+      "description": "Fast, zero-subprocess quick-note capture and management. Notes are centralized markdown files with JSON frontmatter, searchable via grep. The agent uses built-in tools directly — no Python overhead.",
       "version": "2.0.0",
       "homepage": "https://github.com/litianning123/my-claude-marketplace",
       "repository": "https://github.com/litianning123/my-claude-marketplace"
@@ -43,7 +43,7 @@
     {
       "name": "dev-unslop",
       "source": "./dev-unslop",
-      "description": "Removes AI-generated slop from technical writing \u2014 READMEs, PR replies, code comments, docs. Bilingual (EN/ZH) detection of 30+ AI watermark phrases, throat-clearing, filler adjectives, and structural bloat.",
+      "description": "Removes AI-generated slop from technical writing — READMEs, PR replies, code comments, docs. Bilingual (EN/ZH) detection of 30+ AI watermark phrases, throat-clearing, filler adjectives, and structural bloat.",
       "version": "1.0.0",
       "homepage": "https://github.com/litianning123/my-claude-marketplace",
       "repository": "https://github.com/litianning123/my-claude-marketplace"
