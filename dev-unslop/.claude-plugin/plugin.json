@@ -1,0 +1,4 @@
+{
+  "name": "dev-unslop",
+  "description": "Removes AI-generated slop from technical writing — documentation, PR replies, code comments, READMEs. Applies senior-engineer aesthetic: delete throat-clearing, replace fuzzy adjectives with numbers, kill structural filler, enforce directness in code review. Bilingual (EN/ZH) blacklist for AI watermark phrases."
+}

@@ -13,6 +13,7 @@
 | [`hook-doctor`](hook-doctor/) | 检查和修复 Claude Code hook 配置。检测 7 种常见配置错误（未加引号的路径变量、缺失/不可执行的脚本、未知事件、无效 JSON、缺失 command 字段、已弃用语法），并对其中 2 种可自动修复的问题应用安全、幂等的修复。 |
 | [`efficiency-audit`](efficiency-audit/) | 分析 Claude Code 对话记录，发现重复出现的低效模式 — 反复修正、上下文缺失、启动缓慢、可自动化场景、git 工作流错误、工具调用失败和 hook 错误 — 然后通过启发式规则引擎生成修复建议，并以幂等标记块的形式应用到 CLAUDE.md 中。 |
 | [`quicknotes`](quicknotes/) | 快速、零子进程的便签记录和管理。Agent 直接使用内置工具（Write、Read、Bash、Grep、Edit）操作文件 — 无 Python 开销。支持记录、列表、搜索、查看、完成、更新、到期提醒、当前项目查看和引用（双向链接）。便签是以 JSON frontmatter 格式存储的中心化 Markdown 文件。 |
+| [`dev-unslop`](dev-unslop/) | 清除技术文档中的 AI 水话（slop）——README、PR 回复、代码注释、文档。检测清嗓子式开场、空洞形容词、结构性臃肿、AI 水印词（30+ 中英文）和 PR 过度客套。遵循资深工程师的文字审美：不承载信息的句子一律删除。 |
 | [`loop-creator`](loop-creator/) | 向导式对话，生成可直接运行的 `/loop` 配置。可从对话历史中发现循环候选任务（重复提示、时间线索），然后输出命令、项目文件夹或可复用技能。内置循环工程最佳实践：就绪关卡、权限阶梯、制作-检查验证和先手动后自动原则。 |
 
 ## 开发
